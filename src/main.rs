@@ -1,3 +1,7 @@
+mod token;
+mod token_type;
+mod scanner;
+
 use std::env;
 use std::fs::File;
 use std::io::{self, BufRead, Read, Write};
@@ -28,7 +32,7 @@ fn run_prompt() -> io::Result<()> {
         if line.is_empty() {
             break;
         } else {
-            run_line(&line)?;
+            run(&line);
             unsafe { HAD_ERROR = false };
         }
     }
@@ -36,15 +40,11 @@ fn run_prompt() -> io::Result<()> {
     Ok(())
 }
 
-fn run_line(line: &str) -> io::Result<()> {
-    Ok(())
-}
-
 fn run_file(args: &str) -> io::Result<()> {
     let mut file = File::open(args)?;
     let mut contents = String::new();
     file.read_to_string(&mut contents)?;
-    // run(&contents);
+    run(&contents);
     if unsafe { HAD_ERROR } == true {
         process::exit(65)
     };
@@ -52,7 +52,12 @@ fn run_file(args: &str) -> io::Result<()> {
 }
 
 fn run(source: &str) {
-    ()
+    // let scanner = Scanner::new();
+    // let tokens: Vec<Token> = scanner.scan_tokens();
+
+    // for token in tokens.iter() {
+    //     dbg!(token);
+    // }
 }
 
 fn error(line: usize, message: &str) {
