@@ -40,10 +40,10 @@ pub fn scan<'a>(source: &'a str) -> Result<Vec<Token<'a>>, Box<dyn Error>> {
                 ));
             }
             '=' => {
-                if let Some((end_idx, '=')) = chars.clone().next() {
+                if let Some((end_idx, '=')) = chars.peek() {
                     tokens.push(Token::new(
                         TokenType::EqualEqual,
-                        &source[cur_idx..=end_idx],
+                        &source[cur_idx..=*end_idx],
                         line,
                     ));
                     chars.next();
@@ -56,10 +56,10 @@ pub fn scan<'a>(source: &'a str) -> Result<Vec<Token<'a>>, Box<dyn Error>> {
                 }
             }
             '!' => {
-                if let Some((end_idx, '=')) = chars.clone().next() {
+                if let Some((end_idx, '=')) = chars.peek() {
                     tokens.push(Token::new(
                         TokenType::BangEqual,
-                        &source[cur_idx..=end_idx],
+                        &source[cur_idx..=*end_idx],
                         line,
                     ));
                     chars.next();
