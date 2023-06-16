@@ -1,15 +1,18 @@
 mod scanner;
+mod parser;
 mod token;
 mod token_type;
+mod expr;
 
 use std::env;
+use std::error::Error;
 use std::fs::File;
 use std::io::{self, BufRead, Read, Write};
 use std::process;
 
 static mut HAD_ERROR: bool = false;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<(), Box<dyn Error>> {
     let args = env::args().collect::<Vec<_>>();
     if args.len() > 1 {
         println!("Usage: rlox [script]");
