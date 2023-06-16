@@ -2,7 +2,7 @@ use std::error::Error;
 
 use crate::{
     token::{self, Token},
-    token_type::TokenType,
+    token_type::{string_to_keyword, TokenType},
 };
 
 pub fn scan<'a>(source: &'a str) -> Result<Vec<Token<'a>>, Box<dyn Error>> {
@@ -12,6 +12,20 @@ pub fn scan<'a>(source: &'a str) -> Result<Vec<Token<'a>>, Box<dyn Error>> {
     while let Some((cur_idx, c)) = chars.next() {
         let mut end_idx = cur_idx + 1;
         match c {
+            '{' => {
+                tokens.push(Token::new(
+                    TokenType::LeftBrace,
+                    &source[cur_idx..end_idx],
+                    line,
+                ));
+            }
+            '}' => {
+                tokens.push(Token::new(
+                    TokenType::RightBrace,
+                    &source[cur_idx..end_idx],
+                    line,
+                ));
+            }
             '(' => {
                 tokens.push(Token::new(
                     TokenType::LeftParen,
@@ -27,11 +41,18 @@ pub fn scan<'a>(source: &'a str) -> Result<Vec<Token<'a>>, Box<dyn Error>> {
                 ));
             }
             '=' => {
-                tokens.push(Token::new(
-                    TokenType::Equal,
-                    &source[cur_idx..end_idx],
-                    line,
-                ));
+                Token::new(TokenType::Bang, &source[cur_idx..end_idx], line);
+                if let Some((_, '=')) = chars.clone().next() {
+                    end_idx += 1;
+                    tokens.push(Token::new(
+                        TokenType::EqualEqual,
+                        &source[cur_idx..end_idx],
+                        line,
+                    ));
+                    chars.next();
+                } else {
+                    tokens.push(Token::new(TokenType::Equal, &source[cur_idx..end_idx], line));
+                }
             }
             '!' => {
                 Token::new(TokenType::Bang, &source[cur_idx..end_idx], line);
@@ -95,6 +116,21 @@ pub fn scan<'a>(source: &'a str) -> Result<Vec<Token<'a>>, Box<dyn Error>> {
                     lexeme,
                     line,
                 ))
+            }
+            some_alpha if some_alpha.is_alphabetic() => {
+                while let Some((_, maybe_alnum)) = chars.peek() {
+                    if maybe_alnum.is_alphanumeric() {
+                        end_idx += 1;
+                        chars.next();
+                    } else {
+                        break;
+                    }
+                }
+                let lexeme = &source[cur_idx..end_idx];
+                match string_to_keyword(lexeme) {
+                    Some(keyword) => tokens.push(Token::new(keyword, lexeme, line)),
+                    None => tokens.push(Token::new(TokenType::Identifier, lexeme, line)),
+                }
             }
             '\n' => line += 1,
             ' ' => (),
@@ -175,6 +211,35 @@ mod tests {
             Token::new(TokenType::String("nice"), "\"nice\"", 1),
             Token::new(TokenType::String("lol"), "\"lol\"", 2),
             Token::new(TokenType::Eof, "", 2),
+        ];
+        assert_eq!(act_out, exp_out);
+    }
+
+    #[test]
+    fn identifier() {
+        let source = "nice != 69";
+        let act_out = scan(source).unwrap();
+        let exp_out = vec![
+            Token::new(TokenType::Identifier, "nice", 1),
+            Token::new(TokenType::BangEqual, "!=", 1),
+            Token::new(TokenType::Number(69), "69", 1),
+            Token::new(TokenType::Eof, "", 1),
+        ];
+        assert_eq!(act_out, exp_out);
+    }
+    
+    #[test]
+    fn test() {
+        let source = "if nice == 69 {}";
+        let act_out = scan(source).unwrap();
+        let exp_out = vec![
+            Token::new(TokenType::If, "if", 1),
+            Token::new(TokenType::Identifier, "nice", 1),
+            Token::new(TokenType::EqualEqual, "==", 1),
+            Token::new(TokenType::Number(69), "69", 1),
+            Token::new(TokenType::LeftBrace, "{", 1),
+            Token::new(TokenType::RightBrace, "}", 1),
+            Token::new(TokenType::Eof, "", 1),
         ];
         assert_eq!(act_out, exp_out);
     }
