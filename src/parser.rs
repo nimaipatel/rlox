@@ -1,7 +1,9 @@
+use std::fmt::Binary;
+
 use crate::expr::Expr;
-use crate::scanner;
 use crate::token::Token;
 use crate::token_type::TokenType;
+use crate::{scanner, token_type};
 
 // expression     → equality ;
 // equality       → comparison ( ( "!=" | "==" ) comparison )* ;
@@ -26,15 +28,32 @@ use crate::token_type::TokenType;
 //     todo!()
 // }
 
-fn parse_factor<'a>(tokens: &'a Vec<Token<'a>>, pos: usize) -> Result<(Expr<'a>, usize), String> {
-    let (mut expr, mut pos) = parse_unary(tokens, pos)?;
+fn parse_comp<'a>(tokens: &'a Vec<Token<'a>>, pos: usize) -> Result<(Expr<'a>, usize), String> {
+    let (mut expr, mut pos) = parse_term(tokens, pos)?;
     loop {
-        let op_token = tokens.get(pos).unwrap();
-        println!("op_token = {:?}", op_token);
-        if op_token.token_type != TokenType::Star && op_token.token_type != TokenType::Slash {
+        let comp_token = tokens.get(pos).ok_or("unexpected end of input, expected comparision token")?;
+        if comp_token.token_type != TokenType::EqualEqual {
             break;
         }
-        let (right, new_pos) = parse_unary(tokens, pos + 1).unwrap();
+        let (right, new_pos) = parse_term(tokens, pos + 1)?;
+        pos = new_pos;
+        expr = Expr::Binary {
+            left: Box::new(expr),
+            op: comp_token,
+            right: Box::new(right),
+        };
+    }
+    Ok((expr, pos))
+}
+
+fn parse_term<'a>(tokens: &'a Vec<Token<'a>>, pos: usize) -> Result<(Expr<'a>, usize), String> {
+    let (mut expr, mut pos) = parse_factor(tokens, pos)?;
+    loop {
+        let op_token = tokens.get(pos).ok_or("unexpected end of input, expected term token")?;
+        if op_token.token_type != TokenType::Plus && op_token.token_type != TokenType::Minus {
+            break;
+        }
+        let (right, new_pos) = parse_factor(tokens, pos + 1)?;
         pos = new_pos;
         expr = Expr::Binary {
             left: Box::new(expr),
@@ -42,7 +61,25 @@ fn parse_factor<'a>(tokens: &'a Vec<Token<'a>>, pos: usize) -> Result<(Expr<'a>,
             right: Box::new(right),
         }
     }
-    Ok((expr, pos + 1))
+    Ok((expr, pos))
+}
+
+fn parse_factor<'a>(tokens: &'a Vec<Token<'a>>, pos: usize) -> Result<(Expr<'a>, usize), String> {
+    let (mut expr, mut pos) = parse_unary(tokens, pos)?;
+    loop {
+        let op_token = tokens.get(pos).ok_or("unexpected end of input, expected factor token")?;
+        if op_token.token_type != TokenType::Star && op_token.token_type != TokenType::Slash {
+            break;
+        }
+        let (right, new_pos) = parse_unary(tokens, pos + 1)?;
+        pos = new_pos;
+        expr = Expr::Binary {
+            left: Box::new(expr),
+            op: op_token,
+            right: Box::new(right),
+        }
+    }
+    Ok((expr, pos))
 }
 
 fn parse_unary<'a>(tokens: &'a Vec<Token<'a>>, pos: usize) -> Result<(Expr<'a>, usize), String> {
@@ -57,7 +94,7 @@ fn parse_unary<'a>(tokens: &'a Vec<Token<'a>>, pos: usize) -> Result<(Expr<'a>, 
                     op: operator_token,
                     expr: Box::new(right),
                 },
-                pos + 1,
+                pos,
             ))
         }
         _ => parse_primary(tokens, pos),
@@ -115,7 +152,6 @@ mod tests {
         let source = "\n123 * 123\n";
         let tokens = scanner::scan(source).unwrap();
         let (actual, _) = parse_factor(&tokens, 0).unwrap();
-        println!("actual = {:?}", actual);
         assert!(matches!(
             actual,
             Expr::Binary {
@@ -133,12 +169,63 @@ mod tests {
         let source = "\n123 / 123\n";
         let tokens = scanner::scan(source).unwrap();
         let (actual, _) = parse_factor(&tokens, 0).unwrap();
-        println!("actual = {:?}", actual);
         assert!(matches!(
             actual,
             Expr::Binary {
                 op: Token {
                     token_type: TokenType::Slash,
+                    ..
+                },
+                ..
+            }
+        ))
+    }
+
+    #[test]
+    fn test_parse_term() {
+        let source = "1 * 2 + 2";
+        let tokens = scanner::scan(source).unwrap();
+        let (actual, _) = parse_term(&tokens, 0).unwrap();
+        assert!(matches!(
+            actual,
+            Expr::Binary {
+                op: Token {
+                    token_type: TokenType::Plus,
+                    ..
+                },
+                ..
+            }
+        ))
+    }
+
+    #[test]
+    fn test_parse_term2() {
+        let source = "1 - 2 * 2";
+        let tokens = scanner::scan(source).unwrap();
+        let (actual, _) = parse_term(&tokens, 0).unwrap();
+        assert!(matches!(
+            actual,
+            Expr::Binary {
+                op: Token {
+                    token_type: TokenType::Minus,
+                    ..
+                },
+                ..
+            }
+        ))
+    }
+
+    #[test]
+    fn test_comp() {
+        let source = "1 * 2 == 1 + 1";
+        let tokens = scanner::scan(source).unwrap();
+        let (actual, _) = parse_comp(&tokens, 0).unwrap();
+        println!("{:?}", actual);
+        assert!(matches!(
+            actual,
+            Expr::Binary {
+                op: Token {
+                    token_type: TokenType::EqualEqual,
                     ..
                 },
                 ..
