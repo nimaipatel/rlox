@@ -1,13 +1,13 @@
 use crate::token_type::TokenType;
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Token<'a> {
     token_type: TokenType<'a>,
-    lexeme: &'a str,
+    lexeme: &'a [u8],
     line: usize,
 }
 
 impl<'a> Token<'a> {
-    fn new(token_type: TokenType<'a>, lexeme: &'a str, line: usize) -> Self {
+    pub fn new(token_type: TokenType<'a>, lexeme: &'a [u8], line: usize) -> Self {
         Token {
             token_type,
             lexeme,
