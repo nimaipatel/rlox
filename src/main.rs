@@ -1,13 +1,11 @@
+mod scanner;
 mod token;
 mod token_type;
-mod scanner;
 
 use std::env;
 use std::fs::File;
 use std::io::{self, BufRead, Read, Write};
 use std::process;
-
-use token::Token;
 
 static mut HAD_ERROR: bool = false;
 

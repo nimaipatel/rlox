@@ -1,7 +1,7 @@
-use std::error::Error;
+use std::{error::Error};
 
 use crate::{
-    token::{self, Token},
+    token::{Token},
     token_type::{string_to_keyword, TokenType},
 };
 
@@ -10,62 +10,65 @@ pub fn scan<'a>(source: &'a str) -> Result<Vec<Token<'a>>, Box<dyn Error>> {
     let mut tokens = Vec::new();
     let mut chars = source.char_indices().peekable();
     while let Some((cur_idx, c)) = chars.next() {
-        let mut end_idx = cur_idx + 1;
         match c {
             '{' => {
                 tokens.push(Token::new(
                     TokenType::LeftBrace,
-                    &source[cur_idx..end_idx],
+                    &source[cur_idx..=cur_idx],
                     line,
                 ));
             }
             '}' => {
                 tokens.push(Token::new(
                     TokenType::RightBrace,
-                    &source[cur_idx..end_idx],
+                    &source[cur_idx..=cur_idx],
                     line,
                 ));
             }
             '(' => {
                 tokens.push(Token::new(
                     TokenType::LeftParen,
-                    &source[cur_idx..end_idx],
+                    &source[cur_idx..=cur_idx],
                     line,
                 ));
             }
             ')' => {
                 tokens.push(Token::new(
                     TokenType::RightParen,
-                    &source[cur_idx..end_idx],
+                    &source[cur_idx..=cur_idx],
                     line,
                 ));
             }
             '=' => {
-                Token::new(TokenType::Bang, &source[cur_idx..end_idx], line);
-                if let Some((_, '=')) = chars.clone().next() {
-                    end_idx += 1;
+                if let Some((end_idx, '=')) = chars.clone().next() {
                     tokens.push(Token::new(
                         TokenType::EqualEqual,
-                        &source[cur_idx..end_idx],
+                        &source[cur_idx..=end_idx],
                         line,
                     ));
                     chars.next();
                 } else {
-                    tokens.push(Token::new(TokenType::Equal, &source[cur_idx..end_idx], line));
+                    tokens.push(Token::new(
+                        TokenType::Equal,
+                        &source[cur_idx..=cur_idx],
+                        line,
+                    ));
                 }
             }
             '!' => {
-                Token::new(TokenType::Bang, &source[cur_idx..end_idx], line);
-                if let Some((_, '=')) = chars.clone().next() {
-                    end_idx += 1;
+                if let Some((end_idx, '=')) = chars.clone().next() {
                     tokens.push(Token::new(
                         TokenType::BangEqual,
-                        &source[cur_idx..end_idx],
+                        &source[cur_idx..=end_idx],
                         line,
                     ));
                     chars.next();
                 } else {
-                    tokens.push(Token::new(TokenType::Bang, &source[cur_idx..end_idx], line));
+                    tokens.push(Token::new(
+                        TokenType::Bang,
+                        &source[cur_idx..=cur_idx],
+                        line,
+                    ));
                 }
             }
             '/' => {
@@ -80,53 +83,56 @@ pub fn scan<'a>(source: &'a str) -> Result<Vec<Token<'a>>, Box<dyn Error>> {
                 } else {
                     tokens.push(Token::new(
                         TokenType::Slash,
-                        &source[cur_idx..end_idx],
+                        &source[cur_idx..=cur_idx],
                         line,
                     ));
                 }
             }
             '"' => {
-                while let Some((_, maybe_end_quote)) = chars.next() {
-                    end_idx += 1;
-                    if maybe_end_quote == '"' {
-                        let lexeme = &source[cur_idx..end_idx];
-                        tokens.push(Token::new(
-                            TokenType::String(&lexeme[1..lexeme.len() - 1]),
-                            lexeme,
-                            line,
-                        ));
-                        break;
-                    } else if maybe_end_quote == '\n' {
-                        line += 1;
+                while let Some((end_idx, maybe_end_quote)) = chars.next() {
+                    match maybe_end_quote {
+                        '"' => {
+                            let lexeme = &source[cur_idx..=end_idx];
+                            tokens.push(Token::new(
+                                TokenType::String(&lexeme[1..lexeme.len() - 1]),
+                                lexeme,
+                                line,
+                            ));
+                            break;
+                        }
+                        '\n' => line += 1,
+                        _ => (),
                     }
                 }
             }
             some_digit if some_digit.is_digit(10) => {
-                while let Some((_, maybe_digit)) = chars.peek() {
+                let mut end_idx = 0;
+                while let Some((loop_idx, maybe_digit)) = chars.peek() {
                     if maybe_digit.is_digit(10) {
-                        end_idx += 1;
+                        end_idx = *loop_idx;
                         chars.next();
                     } else {
                         break;
                     }
                 }
-                let lexeme = &source[cur_idx..end_idx];
+                let lexeme = &source[cur_idx..=end_idx];
                 tokens.push(Token::new(
                     TokenType::Number(lexeme.parse().unwrap()),
                     lexeme,
                     line,
-                ))
+                ));
             }
             some_alpha if some_alpha.is_alphabetic() => {
-                while let Some((_, maybe_alnum)) = chars.peek() {
+                let mut end_idx = 0;
+                while let Some((loop_idx, maybe_alnum)) = chars.peek() {
                     if maybe_alnum.is_alphanumeric() {
-                        end_idx += 1;
+                        end_idx = *loop_idx;
                         chars.next();
                     } else {
                         break;
                     }
                 }
-                let lexeme = &source[cur_idx..end_idx];
+                let lexeme = &source[cur_idx..=end_idx];
                 match string_to_keyword(lexeme) {
                     Some(keyword) => tokens.push(Token::new(keyword, lexeme, line)),
                     None => tokens.push(Token::new(TokenType::Identifier, lexeme, line)),
@@ -227,7 +233,7 @@ mod tests {
         ];
         assert_eq!(act_out, exp_out);
     }
-    
+
     #[test]
     fn test() {
         let source = "if nice == 69 {}";
