@@ -1,7 +1,7 @@
-use std::{error::Error};
+use std::error::Error;
 
 use crate::{
-    token::{Token},
+    token::Token,
     token_type::{string_to_keyword, TokenType},
 };
 
@@ -106,14 +106,13 @@ pub fn scan<'a>(source: &'a str) -> Result<Vec<Token<'a>>, Box<dyn Error>> {
                 }
             }
             some_digit if some_digit.is_digit(10) => {
-                let mut end_idx = 0;
-                while let Some((loop_idx, maybe_digit)) = chars.peek() {
-                    if maybe_digit.is_digit(10) {
-                        end_idx = *loop_idx;
-                        chars.next();
-                    } else {
+                let mut end_idx = cur_idx;
+                while let Some((_, digit)) = chars.peek() {
+                    if !digit.is_digit(10) {
                         break;
                     }
+                    end_idx += 1;
+                    chars.next();
                 }
                 let lexeme = &source[cur_idx..=end_idx];
                 tokens.push(Token::new(
@@ -123,14 +122,13 @@ pub fn scan<'a>(source: &'a str) -> Result<Vec<Token<'a>>, Box<dyn Error>> {
                 ));
             }
             some_alpha if some_alpha.is_alphabetic() => {
-                let mut end_idx = 0;
-                while let Some((loop_idx, maybe_alnum)) = chars.peek() {
-                    if maybe_alnum.is_alphanumeric() {
-                        end_idx = *loop_idx;
-                        chars.next();
-                    } else {
+                let mut end_idx = cur_idx;
+                while let Some((_, maybe_alnum)) = chars.peek() {
+                    if !maybe_alnum.is_alphanumeric() {
                         break;
                     }
+                    end_idx += 1;
+                    chars.next();
                 }
                 let lexeme = &source[cur_idx..=end_idx];
                 match string_to_keyword(lexeme) {
