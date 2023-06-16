@@ -7,7 +7,6 @@ use std::fs::File;
 use std::io::{self, BufRead, Read, Write};
 use std::process;
 
-use scanner::Scanner;
 use token::Token;
 
 static mut HAD_ERROR: bool = false;
@@ -55,12 +54,11 @@ fn run_file(args: &str) -> io::Result<()> {
 }
 
 fn run(source: &str) {
-    // let mut scanner = Scanner::new(source);
-    // let tokens: Vec<Token> = scanner.scan_tokens().unwrap();
+    let tokens = scanner::scan(source);
 
-    // for token in tokens.iter() {
-    //     dbg!(token);
-    // }
+    for token in tokens.iter() {
+        dbg!(token);
+    }
 }
 
 fn error(line: usize, message: &str) {
