@@ -17,7 +17,7 @@ pub fn parse<'a>(tokens: &'a Vec<Token<'a>>) -> Result<Expr<'a>, String> {
     let parsed = parse_expression(&tokens, 0);
     match parsed {
         Err(e) => Err(e),
-        Ok((parsed, _)) => Ok(parsed)
+        Ok((parsed, _)) => Ok(parsed),
     }
 }
 
@@ -141,8 +141,23 @@ fn parse_primary<'a>(tokens: &'a Vec<Token<'a>>, pos: usize) -> Result<(Expr<'a>
         TokenType::False => Ok((Expr::FalseLiteral, pos + 1)),
         TokenType::True => Ok((Expr::TrueLiteral, pos + 1)),
         TokenType::Nil => Ok((Expr::NilLiteral, pos + 1)),
-        TokenType::String(s) => Ok((Expr::StringLiteral(s), pos + 1)),
+
         TokenType::Number(n) => Ok((Expr::NumericLiteral(*n), pos + 1)),
+        TokenType::String(s) => Ok((Expr::StringLiteral(s), pos + 1)),
+
+        TokenType::LeftParen => {
+            let (expr, pos) = parse_expression(tokens, pos + 1)?;
+            match tokens.get(pos) {
+                Some(Token {
+                    token_type: TokenType::RightParen,
+                    ..
+                }) => Ok((Expr::Grouping(Box::new(expr)), pos + 1)),
+                _ => {
+                    return Err("unexpected end of input, expected right paren".to_string());
+                }
+            }
+        }
+
         something_else => Err(format!(
             "invalid token {:?} while trying to parse `primary` expression ",
             something_else
@@ -252,7 +267,6 @@ mod tests {
         let source = "1 * 2 >=  1 + 1";
         let tokens = scanner::scan(source).unwrap();
         let (actual, _) = parse_comp(&tokens, 0).unwrap();
-        println!("{:?}", actual);
         assert!(matches!(
             actual,
             Expr::Binary {
@@ -263,5 +277,21 @@ mod tests {
                 ..
             }
         ))
+    }
+
+    #[test]
+    fn test_grouping() {
+        let source = "(1 + 3)";
+        let tokens = scanner::scan(source).unwrap();
+        let (actual, _) = parse_primary(&tokens, 0).unwrap();
+        assert!(matches!(actual, Expr::Grouping(..)))
+    }
+
+    #[test]
+    fn test_grouping_fail() {
+        let source = "123 > (1 + 3";
+        let tokens = scanner::scan(source).unwrap();
+        let actual = parse(&tokens);
+        assert_eq!(actual, Err("unexpected end of input, expected right paren".to_string()));
     }
 }
