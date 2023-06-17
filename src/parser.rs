@@ -138,8 +138,8 @@ fn parse_primary<'a>(tokens: &'a Vec<Token<'a>>, pos: usize) -> Result<(Expr<'a>
         .get(pos)
         .ok_or("unexpected end of input, expected a literal")?;
     match &token.token_type {
-        TokenType::False => Ok((Expr::FalseLiteral, pos + 1)),
-        TokenType::True => Ok((Expr::TrueLiteral, pos + 1)),
+        TokenType::False => Ok((Expr::BoolLiteral(false), pos + 1)),
+        TokenType::True => Ok((Expr::BoolLiteral(true), pos + 1)),
         TokenType::Nil => Ok((Expr::NilLiteral, pos + 1)),
 
         TokenType::Number(n) => Ok((Expr::NumericLiteral(*n), pos + 1)),

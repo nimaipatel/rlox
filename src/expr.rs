@@ -4,8 +4,7 @@ use crate::token::Token;
 pub enum Expr<'a> {
     StringLiteral(&'a str),
     NumericLiteral(u32),
-    TrueLiteral,
-    FalseLiteral,
+    BoolLiteral(bool),
     NilLiteral,
     Unary {
         op: &'a Token<'a>,
