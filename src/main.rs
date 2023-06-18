@@ -57,8 +57,9 @@ fn run_file(args: &str) -> io::Result<()> {
 
 fn run(source: &str) {
     let tokens = scanner::scan(source).unwrap();
-    let expr = parser::parse(&tokens);
-    dbg!(expr);
+    let expr = parser::parse(&tokens).unwrap();
+    let value = interpreter::evaluate(&expr);
+    dbg!(value);
 }
 
 fn error(line: usize, message: &str) {
