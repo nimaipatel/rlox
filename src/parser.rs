@@ -173,7 +173,7 @@ mod tests {
         let source = "123\n\n";
         let tokens = scanner::scan(source).unwrap();
         let (actual, _) = parse_primary(&tokens, 0).unwrap();
-        let expected = Expr::NumericLiteral(123);
+        let expected = Expr::NumericLiteral(123.);
         assert_eq!(actual, expected);
     }
 

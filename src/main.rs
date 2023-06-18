@@ -3,6 +3,7 @@ mod parser;
 mod token;
 mod token_type;
 mod expr;
+mod interpreter;
 
 use std::env;
 use std::error::Error;

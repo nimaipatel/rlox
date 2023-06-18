@@ -1,9 +1,9 @@
 use crate::token::Token;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq)]
 pub enum Expr<'a> {
     StringLiteral(&'a str),
-    NumericLiteral(u32),
+    NumericLiteral(f64),
     BoolLiteral(bool),
     NilLiteral,
     Unary {

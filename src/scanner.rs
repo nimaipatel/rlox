@@ -114,13 +114,29 @@ pub fn scan<'a>(src: &'a str) -> Result<Vec<Token<'a>>, Box<dyn Error>> {
             }
             some_digit if some_digit.is_digit(10) => {
                 let mut end_idx = idx;
-                while let Some((_, digit)) = chars.peek() {
-                    match digit.is_digit(10) {
-                        true => {
+                let mut peek = chars.clone();
+                let mut peekpeek = chars.clone().skip(1);
+                'num_loop: while let (Some((_, peek)), peekpeek) = (peek.next(), peekpeek.next()) {
+                    match (peek, peekpeek) {
+                        (digit, _) if digit.is_digit(10) => {
                             end_idx += 1;
                             chars.next();
                         }
-                        false => break,
+                        ('.', Some((_, digit))) if digit.is_digit(10) => {
+                            end_idx += 1; // consume the '.'
+                            chars.next();
+
+                            while let peek = chars.peek() {
+                                match peek {
+                                    Some((_, digit)) if digit.is_digit(10) => {
+                                        end_idx += 1;
+                                        chars.next();
+                                    },
+                                    _ => break 'num_loop,
+                                }
+                            }
+                        }
+                        _ => break 'num_loop,
                     }
                 }
                 let lexeme = &src[idx..=end_idx];
@@ -192,9 +208,9 @@ mod tests {
         let source = "456!=123";
         let act_out = scan(source).unwrap();
         let exp_out = vec![
-            Token::new(TokenType::Number(456), "456", 1),
+            Token::new(TokenType::Number(456.), "456", 1),
             Token::new(TokenType::BangEqual, "!=", 1),
-            Token::new(TokenType::Number(123), "123", 1),
+            Token::new(TokenType::Number(123.), "123", 1),
             Token::new(TokenType::Eof, "", 1),
         ];
         assert_eq!(act_out, exp_out);
@@ -205,12 +221,12 @@ mod tests {
         let source = "456!=123// this is a comment\n789!=789";
         let act_out = scan(source).unwrap();
         let exp_out = vec![
-            Token::new(TokenType::Number(456), "456", 1),
+            Token::new(TokenType::Number(456.), "456", 1),
             Token::new(TokenType::BangEqual, "!=", 1),
-            Token::new(TokenType::Number(123), "123", 1),
-            Token::new(TokenType::Number(789), "789", 2),
+            Token::new(TokenType::Number(123.), "123", 1),
+            Token::new(TokenType::Number(789.), "789", 2),
             Token::new(TokenType::BangEqual, "!=", 2),
-            Token::new(TokenType::Number(789), "789", 2),
+            Token::new(TokenType::Number(789.), "789", 2),
             Token::new(TokenType::Eof, "", 2),
         ];
         assert_eq!(act_out, exp_out);
@@ -235,7 +251,7 @@ mod tests {
         let exp_out = vec![
             Token::new(TokenType::Identifier, "nice", 1),
             Token::new(TokenType::BangEqual, "!=", 1),
-            Token::new(TokenType::Number(69), "69", 1),
+            Token::new(TokenType::Number(69.), "69", 1),
             Token::new(TokenType::Eof, "", 1),
         ];
         assert_eq!(act_out, exp_out);
@@ -249,11 +265,24 @@ mod tests {
             Token::new(TokenType::If, "if", 1),
             Token::new(TokenType::Identifier, "nice", 1),
             Token::new(TokenType::EqualEqual, "==", 1),
-            Token::new(TokenType::Number(69), "69", 1),
+            Token::new(TokenType::Number(69.), "69", 1),
             Token::new(TokenType::LeftBrace, "{", 1),
             Token::new(TokenType::RightBrace, "}", 1),
             Token::new(TokenType::Eof, "", 1),
         ];
         assert_eq!(act_out, exp_out);
+    }
+
+    #[test]
+    fn test_decimal_token() {
+        let source = "1.23 >= 3.45";
+        let actual = scan(source).unwrap();
+        let expected = vec![
+            Token::new(TokenType::Number(1.23), "1.23", 1),
+            Token::new(TokenType::GreaterEqual, ">=", 1),
+            Token::new(TokenType::Number(3.45), "3.45", 1),
+            Token::new(TokenType::Eof, "", 1),
+        ];
+        assert_eq!(actual, expected);
     }
 }
