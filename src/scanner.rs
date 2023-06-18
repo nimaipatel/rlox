@@ -115,11 +115,13 @@ pub fn scan<'a>(src: &'a str) -> Result<Vec<Token<'a>>, Box<dyn Error>> {
             some_digit if some_digit.is_digit(10) => {
                 let mut end_idx = idx;
                 while let Some((_, digit)) = chars.peek() {
-                    if !digit.is_digit(10) {
-                        break;
+                    match digit.is_digit(10) {
+                        true => {
+                            end_idx += 1;
+                            chars.next();
+                        }
+                        false => break,
                     }
-                    end_idx += 1;
-                    chars.next();
                 }
                 let lexeme = &src[idx..=end_idx];
                 tokens.push(Token::new(
