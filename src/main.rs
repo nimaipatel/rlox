@@ -11,7 +11,7 @@ use std::fs::File;
 use std::io::{self, BufRead, Read, Write};
 use std::process;
 
-static mut HAD_ERROR: bool = false;
+// static mut HAD_ERROR: bool = false;
 
 fn main() -> Result<(), Box<dyn Error>> {
     let args = env::args().collect::<Vec<_>>();
@@ -37,7 +37,7 @@ fn run_prompt() -> io::Result<()> {
             break;
         } else {
             run(&line);
-            unsafe { HAD_ERROR = false };
+            // unsafe { HAD_ERROR = false };
         }
     }
 
@@ -49,9 +49,9 @@ fn run_file(args: &str) -> io::Result<()> {
     let mut contents = String::new();
     file.read_to_string(&mut contents)?;
     run(&contents);
-    if unsafe { HAD_ERROR } == true {
-        process::exit(65)
-    };
+    // if unsafe { HAD_ERROR } == true {
+    //     process::exit(65)
+    // };
     Ok(())
 }
 
@@ -62,11 +62,11 @@ fn run(source: &str) {
     dbg!(value);
 }
 
-fn error(line: usize, message: &str) {
-    report(line, "", message);
-}
+// fn error(line: usize, message: &str) {
+//     report(line, "", message);
+// }
 
-fn report(line: usize, place: &str, message: &str) {
-    eprint!("[line {}] Error{}: {}", line, place, message);
-    unsafe { HAD_ERROR = true };
-}
+// fn report(line: usize, place: &str, message: &str) {
+//     eprint!("[line {}] Error{}: {}", line, place, message);
+//     unsafe { HAD_ERROR = true };
+// }

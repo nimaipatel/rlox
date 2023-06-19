@@ -1,12 +1,30 @@
+use core::fmt;
 use std::error::Error;
 
 use crate::{
-    error,
+    // error,
     token::Token,
     token_type::{string_to_keyword, TokenType},
 };
 
-pub fn scan<'a>(src: &'a str) -> Result<Vec<Token<'a>>, Box<dyn Error>> {
+#[derive(Debug)]
+pub enum ScanError {
+    UnexpectedChar(char, usize),
+}
+
+impl Error for ScanError {}
+
+impl fmt::Display for ScanError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ScanError::UnexpectedChar(c, line) => {
+                write!(f, "Found unexpected character {} while scanning on line {}", c, line)
+            }
+        }
+    }
+}
+
+pub fn scan<'a>(src: &'a str) -> Result<Vec<Token<'a>>, ScanError> {
     let mut line = 1;
     let mut tokens = Vec::new();
     let mut chars = src.char_indices().peekable();
@@ -131,7 +149,7 @@ pub fn scan<'a>(src: &'a str) -> Result<Vec<Token<'a>>, Box<dyn Error>> {
                                     Some((_, digit)) if digit.is_digit(10) => {
                                         end_idx += 1;
                                         chars.next();
-                                    },
+                                    }
                                     _ => break 'num_loop,
                                 }
                             }
@@ -166,7 +184,7 @@ pub fn scan<'a>(src: &'a str) -> Result<Vec<Token<'a>>, Box<dyn Error>> {
             '\r' => (),
             '\t' => (),
 
-            _ => error(line, "Unexpected character."),
+            c => return Err(ScanError::UnexpectedChar(c, line)),
         }
     }
     tokens.push(Token::new(TokenType::Eof, "", line));

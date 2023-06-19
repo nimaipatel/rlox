@@ -1,3 +1,6 @@
+use core::fmt;
+use std::error::Error;
+
 use crate::expr::Expr;
 use crate::token::Token;
 use crate::token_type::TokenType;
@@ -13,7 +16,26 @@ use crate::{scanner, token_type};
 // primary        → NUMBER | STRING | "true" | "false" | "nil"
 //                | "(" expression ")" ;
 
-pub fn parse<'a>(tokens: &'a Vec<Token<'a>>) -> Result<Expr<'a>, String> {
+#[derive(Debug, PartialEq)]
+pub enum ParseError {
+    UnexpectedEndOfInput { expected: &'static str },
+    InvalidToken { token: String },
+}
+
+impl Error for ParseError {}
+
+impl fmt::Display for ParseError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ParseError::UnexpectedEndOfInput { expected } => {
+                write! {f, "Unexpected end of input, expected {} token", expected}
+            }
+            ParseError::InvalidToken { token } => write!(f, "Found invalid token {}", token),
+        }
+    }
+}
+
+pub fn parse<'a>(tokens: &'a Vec<Token<'a>>) -> Result<Expr<'a>, ParseError> {
     let parsed = parse_expression(&tokens, 0);
     match parsed {
         Err(e) => Err(e),
@@ -24,16 +46,19 @@ pub fn parse<'a>(tokens: &'a Vec<Token<'a>>) -> Result<Expr<'a>, String> {
 fn parse_expression<'a>(
     tokens: &'a Vec<Token<'a>>,
     pos: usize,
-) -> Result<(Expr<'a>, usize), String> {
+) -> Result<(Expr<'a>, usize), ParseError> {
     parse_equality(tokens, pos)
 }
 
-fn parse_equality<'a>(tokens: &'a Vec<Token<'a>>, pos: usize) -> Result<(Expr<'a>, usize), String> {
+fn parse_equality<'a>(
+    tokens: &'a Vec<Token<'a>>,
+    pos: usize,
+) -> Result<(Expr<'a>, usize), ParseError> {
     let (mut expr, mut pos) = parse_comp(tokens, pos)?;
     loop {
-        let comp_token = tokens
-            .get(pos)
-            .ok_or("unexpected end of input, expected equality token")?;
+        let comp_token = tokens.get(pos).ok_or(ParseError::UnexpectedEndOfInput {
+            expected: "equality",
+        })?;
         if comp_token.token_type != TokenType::EqualEqual
             && comp_token.token_type != TokenType::BangEqual
         {
@@ -50,12 +75,12 @@ fn parse_equality<'a>(tokens: &'a Vec<Token<'a>>, pos: usize) -> Result<(Expr<'a
     Ok((expr, pos))
 }
 
-fn parse_comp<'a>(tokens: &'a Vec<Token<'a>>, pos: usize) -> Result<(Expr<'a>, usize), String> {
+fn parse_comp<'a>(tokens: &'a Vec<Token<'a>>, pos: usize) -> Result<(Expr<'a>, usize), ParseError> {
     let (mut expr, mut pos) = parse_term(tokens, pos)?;
     loop {
-        let comp_token = tokens
-            .get(pos)
-            .ok_or("unexpected end of input, expected comparision token")?;
+        let comp_token = tokens.get(pos).ok_or(ParseError::UnexpectedEndOfInput {
+            expected: "comparision",
+        })?;
         if comp_token.token_type != TokenType::Greater
             && comp_token.token_type != TokenType::GreaterEqual
             && comp_token.token_type != TokenType::Less
@@ -74,12 +99,12 @@ fn parse_comp<'a>(tokens: &'a Vec<Token<'a>>, pos: usize) -> Result<(Expr<'a>, u
     Ok((expr, pos))
 }
 
-fn parse_term<'a>(tokens: &'a Vec<Token<'a>>, pos: usize) -> Result<(Expr<'a>, usize), String> {
+fn parse_term<'a>(tokens: &'a Vec<Token<'a>>, pos: usize) -> Result<(Expr<'a>, usize), ParseError> {
     let (mut expr, mut pos) = parse_factor(tokens, pos)?;
     loop {
-        let op_token = tokens
-            .get(pos)
-            .ok_or("unexpected end of input, expected term token")?;
+        let op_token = tokens.get(pos).ok_or(ParseError::UnexpectedEndOfInput {
+            expected: "term operator",
+        })?;
         if op_token.token_type != TokenType::Plus && op_token.token_type != TokenType::Minus {
             break;
         }
@@ -94,12 +119,15 @@ fn parse_term<'a>(tokens: &'a Vec<Token<'a>>, pos: usize) -> Result<(Expr<'a>, u
     Ok((expr, pos))
 }
 
-fn parse_factor<'a>(tokens: &'a Vec<Token<'a>>, pos: usize) -> Result<(Expr<'a>, usize), String> {
+fn parse_factor<'a>(
+    tokens: &'a Vec<Token<'a>>,
+    pos: usize,
+) -> Result<(Expr<'a>, usize), ParseError> {
     let (mut expr, mut pos) = parse_unary(tokens, pos)?;
     loop {
         let op_token = tokens
             .get(pos)
-            .ok_or("unexpected end of input, expected factor token")?;
+            .ok_or(ParseError::UnexpectedEndOfInput { expected: "factor" })?;
         if op_token.token_type != TokenType::Star && op_token.token_type != TokenType::Slash {
             break;
         }
@@ -114,10 +142,13 @@ fn parse_factor<'a>(tokens: &'a Vec<Token<'a>>, pos: usize) -> Result<(Expr<'a>,
     Ok((expr, pos))
 }
 
-fn parse_unary<'a>(tokens: &'a Vec<Token<'a>>, pos: usize) -> Result<(Expr<'a>, usize), String> {
-    let operator_token = tokens
-        .get(pos)
-        .ok_or("unexpected end of input, expected unary operator")?;
+fn parse_unary<'a>(
+    tokens: &'a Vec<Token<'a>>,
+    pos: usize,
+) -> Result<(Expr<'a>, usize), ParseError> {
+    let operator_token = tokens.get(pos).ok_or(ParseError::UnexpectedEndOfInput {
+        expected: "unary operator",
+    })?;
     match &operator_token.token_type {
         TokenType::Bang | TokenType::Minus => {
             let (right, pos) = parse_unary(tokens, pos + 1)?;
@@ -133,10 +164,13 @@ fn parse_unary<'a>(tokens: &'a Vec<Token<'a>>, pos: usize) -> Result<(Expr<'a>, 
     }
 }
 
-fn parse_primary<'a>(tokens: &'a Vec<Token<'a>>, pos: usize) -> Result<(Expr<'a>, usize), String> {
-    let token = tokens
-        .get(pos)
-        .ok_or("unexpected end of input, expected a literal")?;
+fn parse_primary<'a>(
+    tokens: &'a Vec<Token<'a>>,
+    pos: usize,
+) -> Result<(Expr<'a>, usize), ParseError> {
+    let token = tokens.get(pos).ok_or(ParseError::UnexpectedEndOfInput {
+        expected: "literal",
+    })?;
     match &token.token_type {
         TokenType::False => Ok((Expr::BoolLiteral(false), pos + 1)),
         TokenType::True => Ok((Expr::BoolLiteral(true), pos + 1)),
@@ -153,15 +187,16 @@ fn parse_primary<'a>(tokens: &'a Vec<Token<'a>>, pos: usize) -> Result<(Expr<'a>
                     ..
                 }) => Ok((Expr::Grouping(Box::new(expr)), pos + 1)),
                 _ => {
-                    return Err("unexpected end of input, expected right paren".to_string());
+                    return Err(ParseError::UnexpectedEndOfInput {
+                        expected: "right paren",
+                    });
                 }
             }
         }
 
-        something_else => Err(format!(
-            "invalid token {:?} while trying to parse `primary` expression ",
-            something_else
-        )),
+        invalid_token => Err(ParseError::InvalidToken {
+            token: format!("{:?}", invalid_token),
+        }),
     }
 }
 
@@ -292,6 +327,9 @@ mod tests {
         let source = "123 > (1 + 3";
         let tokens = scanner::scan(source).unwrap();
         let actual = parse(&tokens);
-        assert_eq!(actual, Err("unexpected end of input, expected right paren".to_string()));
+        assert_eq!(
+            actual,
+            Err(ParseError::UnexpectedEndOfInput { expected: "right paren" })
+        );
     }
 }
