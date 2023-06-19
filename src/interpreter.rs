@@ -1,4 +1,6 @@
-use crate::{expr::Expr, token_type::TokenType};
+use std::{error::Error, fmt::Display};
+
+use crate::{expr::Expr, token::Token, token_type::TokenType};
 
 #[derive(Debug, PartialEq)]
 pub enum LoxType {
@@ -8,88 +10,158 @@ pub enum LoxType {
     String(String),
 }
 
-fn is_truthy(lox_type: LoxType) -> bool {
+#[derive(Debug)]
+pub enum RunTimeError<'a> {
+    OperandShouldBeNumber {
+        operator: &'a Token<'a>,
+        operand: LoxType,
+    },
+    OperandsShouldBeNumber {
+        op: &'a Token<'a>,
+        left: LoxType,
+        right: LoxType,
+    },
+}
+
+impl<'a> Error for RunTimeError<'a> {}
+
+impl<'a> Display for RunTimeError<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            RunTimeError::OperandShouldBeNumber { operator, operand } => write!(
+                f,
+                "Operand for the unary operator {:?} on line {} must be number but found {:?}",
+                operator.token_type, operator.line, operand
+            ),
+            RunTimeError::OperandsShouldBeNumber {
+                op: operator,
+                left,
+                right,
+            } => write!(
+                f,
+                "Operands for the binary operator {:?} on line {} must be numbers but found {:?} and {:?}",
+                operator, operator.line, left, right
+            ),
+        }
+    }
+}
+
+fn is_truthy<'a>(lox_type: &'a LoxType) -> bool {
     match lox_type {
         LoxType::Nil => false,
-        LoxType::Boolean(b) => b,
+        LoxType::Boolean(b) => *b,
         _ => true,
     }
 }
 
-impl TryInto<f64> for LoxType {
-    type Error = String;
-
-    fn try_into(self) -> Result<f64, Self::Error> {
-        match self {
-            LoxType::Number(n) => Ok(n),
-            _ => Err("failed cast".to_string()),
-        }
-    }
-}
-
-pub fn evaluate(expr: &Expr) -> LoxType {
+pub fn evaluate<'a, 'b>(expr: &'a Expr) -> Result<LoxType, RunTimeError<'a>> {
     match expr {
-        Expr::StringLiteral(s) => LoxType::String(s.to_string()),
-        Expr::NumericLiteral(n) => LoxType::Number(*n as f64),
-        Expr::BoolLiteral(b) => LoxType::Boolean(*b),
-        Expr::NilLiteral => LoxType::Nil,
+        Expr::StringLiteral(s) => Ok(LoxType::String(s.to_string())),
+        Expr::NumericLiteral(n) => Ok(LoxType::Number(*n as f64)),
+        Expr::BoolLiteral(b) => Ok(LoxType::Boolean(*b)),
+        Expr::NilLiteral => Ok(LoxType::Nil),
         Expr::Grouping(expr) => evaluate(expr),
         Expr::Unary { op, expr } => {
-            let right = evaluate(expr);
-            match &op.token_type {
-                TokenType::Minus => LoxType::Number(right.try_into().unwrap()),
-                TokenType::Bang => LoxType::Boolean(!is_truthy(right)),
+            let right = evaluate(expr)?;
+            match (&op.token_type, &right) {
+                (TokenType::Bang, _) => Ok(LoxType::Boolean(!is_truthy(&right))),
+                (TokenType::Minus, LoxType::Number(n)) => Ok(LoxType::Number(*n)),
+                (TokenType::Minus, _) => Err(RunTimeError::OperandShouldBeNumber {
+                    operator: *op,
+                    operand: right,
+                }),
                 _ => unreachable!(),
             }
         }
         Expr::Binary { left, op, right } => {
-            let left = evaluate(left);
-            let right = evaluate(right);
-            match &op.token_type {
-                TokenType::Minus => {
-                    let op1: f64 = left.try_into().unwrap();
-                    let op2: f64 = right.try_into().unwrap();
-                    LoxType::Number(op1 - op2)
+            let left = evaluate(left)?;
+            let right = evaluate(right)?;
+            match (left, &op.token_type, right) {
+                (LoxType::Number(n1), TokenType::Minus, LoxType::Number(n2)) => {
+                    Ok(LoxType::Number(n1 - n2))
                 }
-                TokenType::Slash => {
-                    let op1: f64 = left.try_into().unwrap();
-                    let op2: f64 = right.try_into().unwrap();
-                    LoxType::Number(op1 / op2)
+                (left, TokenType::Minus, right) => Err(RunTimeError::OperandsShouldBeNumber {
+                    op: *op,
+                    left,
+                    right,
+                }),
+                (LoxType::Number(n1), TokenType::Slash, LoxType::Number(n2)) => {
+                    Ok(LoxType::Number(n1 / n2))
                 }
-                TokenType::Star => {
-                    let op1: f64 = left.try_into().unwrap();
-                    let op2: f64 = right.try_into().unwrap();
-                    LoxType::Number(op1 * op2)
+                (left, TokenType::Slash, right) => Err(RunTimeError::OperandsShouldBeNumber {
+                    op: *op,
+                    left,
+                    right,
+                }),
+                (LoxType::Number(n1), TokenType::Star, LoxType::Number(n2)) => {
+                    Ok(LoxType::Number(n1 * n2))
                 }
-                TokenType::Plus => match (left, right) {
-                    (LoxType::Number(n1), LoxType::Number(n2)) => LoxType::Number(n1 + n2),
-                    (LoxType::String(s1), LoxType::String(s2)) => {
-                        LoxType::String(format!("{}{}", s1, s2))
-                    }
-                    _ => todo!("book says this will be done later"),
-                },
-                TokenType::Greater => {
-                    let op1: f64 = left.try_into().unwrap();
-                    let op2: f64 = right.try_into().unwrap();
-                    LoxType::Boolean(op1 > op2)
+                (left, TokenType::Star, right) => Err(RunTimeError::OperandsShouldBeNumber {
+                    op: *op,
+                    left,
+                    right,
+                }),
+                (LoxType::Number(n1), TokenType::Plus, LoxType::Number(n2)) => {
+                    Ok(LoxType::Number(n1 + n2))
                 }
-                TokenType::GreaterEqual => {
-                    let op1: f64 = left.try_into().unwrap();
-                    let op2: f64 = right.try_into().unwrap();
-                    LoxType::Boolean(op1 >= op2)
+                (LoxType::String(s1), TokenType::Plus, LoxType::String(s2)) => {
+                    Ok(LoxType::String(format!("{}{}", s1, s2)))
                 }
-                TokenType::Less => {
-                    let op1: f64 = left.try_into().unwrap();
-                    let op2: f64 = right.try_into().unwrap();
-                    LoxType::Boolean(op1 < op2)
+                (left, TokenType::Plus, right) => Err(RunTimeError::OperandsShouldBeNumber {
+                    op: *op,
+                    left,
+                    right,
+                }),
+                (LoxType::Number(n1), TokenType::Greater, LoxType::Number(n2)) => {
+                    Ok(LoxType::Boolean(n1 > n2))
                 }
-                TokenType::LessEqual => {
-                    let op1: f64 = left.try_into().unwrap();
-                    let op2: f64 = right.try_into().unwrap();
-                    LoxType::Boolean(op1 <= op2)
+                (left, TokenType::Greater, right) => Err(RunTimeError::OperandsShouldBeNumber {
+                    op: *op,
+                    left,
+                    right,
+                }),
+                (LoxType::Number(n1), TokenType::GreaterEqual, LoxType::Number(n2)) => {
+                    Ok(LoxType::Boolean(n1 >= n2))
                 }
-                TokenType::BangEqual => LoxType::Boolean(left != right),
-                TokenType::EqualEqual => LoxType::Boolean(left == right),
+                (left, TokenType::GreaterEqual, right) => {
+                    Err(RunTimeError::OperandsShouldBeNumber {
+                        op: *op,
+                        left,
+                        right,
+                    })
+                }
+                (LoxType::Number(n1), TokenType::Less, LoxType::Number(n2)) => {
+                    Ok(LoxType::Boolean(n1 > n2))
+                }
+                (left, TokenType::Less, right) => Err(RunTimeError::OperandsShouldBeNumber {
+                    op: *op,
+                    left,
+                    right,
+                }),
+                (LoxType::Number(n1), TokenType::LessEqual, LoxType::Number(n2)) => {
+                    Ok(LoxType::Boolean(n1 >= n2))
+                }
+                (left, TokenType::LessEqual, right) => Err(RunTimeError::OperandsShouldBeNumber {
+                    op: *op,
+                    left,
+                    right,
+                }),
+                (LoxType::Number(n1), TokenType::BangEqual, LoxType::Number(n2)) => {
+                    Ok(LoxType::Boolean(n1 != n2))
+                }
+                (left, TokenType::BangEqual, right) => Err(RunTimeError::OperandsShouldBeNumber {
+                    op: *op,
+                    left,
+                    right,
+                }),
+                (LoxType::Number(n1), TokenType::EqualEqual, LoxType::Number(n2)) => {
+                    Ok(LoxType::Boolean(n1 == n2))
+                }
+                (left, TokenType::EqualEqual, right) => Err(RunTimeError::OperandsShouldBeNumber {
+                    op: *op,
+                    left,
+                    right,
+                }),
                 _ => unreachable!(),
             }
         }

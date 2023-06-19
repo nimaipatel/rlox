@@ -3,7 +3,7 @@ use crate::token_type::TokenType;
 pub struct Token<'a> {
     pub token_type: TokenType<'a>,
     lexeme: &'a str,
-    line: usize,
+    pub line: usize,
 }
 
 impl<'a> Token<'a> {
