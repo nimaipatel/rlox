@@ -4,7 +4,7 @@ use std::rc::Rc;
 use crate::{interpreter::LoxType, interpreter::RunTimeError, token::Token, token_type::TokenType};
 
 pub struct Environment {
-    map: HashMap<String, Rc<LoxType>>,
+    pub map: HashMap<String, Rc<LoxType>>,
 }
 
 impl Environment {

@@ -32,22 +32,47 @@ use crate::{scanner, token_type};
 
 // TODO: make ParseError accept the token to get line information
 #[derive(Debug, PartialEq)]
-pub enum ParseError {
-    UnexpectedEndOfInput { expected: &'static str },
-    InvalidToken { token: String },
-    ExpectedSomething { something: String },
+pub enum ParseError<'a> {
+    UnexpectedEndOfInput {
+        expected: &'static str,
+    },
+    InvalidToken {
+        token: &'a Token<'a>,
+    },
+    ExpectedSomething {
+        actual: &'a Token<'a>,
+        expected: &'a TokenType<'a>,
+    },
+    InvalidAssignment {
+        equals: &'a Token<'a>,
+    },
 }
 
-impl Error for ParseError {}
+impl<'a> Error for ParseError<'a> {}
 
-impl fmt::Display for ParseError {
+impl<'a> fmt::Display for ParseError<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             ParseError::UnexpectedEndOfInput { expected } => {
                 write! {f, "Unexpected end of input, expected {} token", expected}
             }
-            ParseError::InvalidToken { token } => write!(f, "Found invalid token {}", token),
-            ParseError::ExpectedSomething { something: token } => write!(f, "Expected {}", token),
+            ParseError::InvalidAssignment { equals } => {
+                write!(f, "Invalid assignment target on line {}", equals.line)
+            }
+            ParseError::InvalidToken { token } => {
+                write!(
+                    f,
+                    "Found invalid token {} on line {}",
+                    token.lexeme, token.line
+                )
+            }
+            ParseError::ExpectedSomething { actual, expected } => {
+                write!(
+                    f,
+                    "Found token {} but expected {:?} on line {}",
+                    actual.lexeme, expected, actual.line
+                )
+            }
         }
     }
 }
@@ -82,16 +107,16 @@ fn parse_var_declaration<'a>(
     tokens: &'a Vec<Token<'a>>,
     pos: usize,
 ) -> Result<(Stmt<'a>, usize), ParseError> {
-    let (name, pos) = consume(tokens, pos, TokenType::Identifier)?;
+    let (name, pos) = consume(tokens, pos, &TokenType::Identifier)?;
 
-    match consume(tokens, pos, TokenType::Equal) {
+    match consume(tokens, pos, &TokenType::Equal) {
         Ok((_, pos)) => {
             let (initializer, pos) = parse_expression(tokens, pos)?;
-            let (_, pos) = consume(tokens, pos, TokenType::Semicolon)?;
+            let (_, pos) = consume(tokens, pos, &TokenType::Semicolon)?;
             Ok((Stmt::Var(name, Some(initializer)), pos))
         }
         Err(_) => {
-            let (_, pos) = consume(tokens, pos, TokenType::Semicolon)?;
+            let (_, pos) = consume(tokens, pos, &TokenType::Semicolon)?;
             Ok((Stmt::Var(name, None), pos))
         }
     }
@@ -112,7 +137,7 @@ fn parse_expression_statement<'a>(
     pos: usize,
 ) -> Result<(Stmt<'a>, usize), ParseError> {
     let (expr, pos) = parse_expression(tokens, pos)?;
-    let (_, pos) = consume(tokens, pos, TokenType::Semicolon)?;
+    let (_, pos) = consume(tokens, pos, &TokenType::Semicolon)?;
     return Ok((Stmt::Expression(expr), pos));
 }
 
@@ -121,7 +146,7 @@ fn parse_print_statement<'a>(
     pos: usize,
 ) -> Result<(Stmt<'a>, usize), ParseError> {
     let (value, pos) = parse_expression(tokens, pos)?;
-    let (_, pos) = consume(tokens, pos, TokenType::Semicolon)?;
+    let (_, pos) = consume(tokens, pos, &TokenType::Semicolon)?;
     return Ok((Stmt::Print(value), pos));
 }
 
@@ -129,13 +154,14 @@ fn parse_print_statement<'a>(
 fn consume<'a>(
     tokens: &'a Vec<Token<'a>>,
     pos: usize,
-    expected: TokenType,
-) -> Result<(&'a Token<'a>, usize), ParseError> {
-    if tokens[pos].token_type == expected {
+    expected: &'a TokenType<'a>,
+) -> Result<(&'a Token<'a>, usize), ParseError<'a>> {
+    if tokens[pos].token_type == *expected {
         Ok((&tokens[pos], pos + 1))
     } else {
         Err(ParseError::ExpectedSomething {
-            something: format!("{:?}", expected),
+            actual: &tokens[pos],
+            expected: &expected,
         })
     }
 }
@@ -144,7 +170,30 @@ fn parse_expression<'a>(
     tokens: &'a Vec<Token<'a>>,
     pos: usize,
 ) -> Result<(Expr<'a>, usize), ParseError> {
-    parse_equality(tokens, pos)
+    parse_assignment(tokens, pos)
+}
+
+fn parse_assignment<'a>(
+    tokens: &'a Vec<Token<'a>>,
+    pos: usize,
+) -> Result<(Expr<'a>, usize), ParseError> {
+    let (expr, pos) = parse_equality(tokens, pos)?;
+    match consume(tokens, pos, &TokenType::Equal) {
+        Ok((equals, pos)) => {
+            let (value, pos) = parse_assignment(tokens, pos)?;
+            match expr {
+                Expr::Variable(name) => Ok((
+                    Expr::Assign {
+                        name,
+                        value: Box::new(value),
+                    },
+                    pos,
+                )),
+                _ => Err(ParseError::InvalidAssignment { equals }),
+            }
+        }
+        Err(_) => Ok((expr, pos)),
+    }
 }
 
 fn parse_equality<'a>(
@@ -278,17 +327,13 @@ fn parse_primary<'a>(
 
         TokenType::LeftParen => {
             let (expr, pos) = parse_expression(tokens, pos + 1)?;
-            let (_, pos) = consume(tokens, pos, TokenType::RightParen)?;
+            let (_, pos) = consume(tokens, pos, &TokenType::RightParen)?;
             Ok(((Expr::Grouping(Box::new(expr))), pos))
         }
-        
-        TokenType::Identifier => {
-            Ok((Expr::Variable(token), pos + 1))
-        }
 
-        invalid_token => Err(ParseError::InvalidToken {
-            token: format!("{:?}", invalid_token),
-        }),
+        TokenType::Identifier => Ok((Expr::Variable(token), pos + 1)),
+
+        invalid_token => Err(ParseError::InvalidToken { token }),
     }
 }
 

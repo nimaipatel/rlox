@@ -61,7 +61,7 @@ impl<'a> Display for RunTimeError<'a> {
                 "Operands for the binary operator {:?} on line {} must be numbers but found {:?} and {:?}",
                 operator, operator.line, left, right
             ),
-            RunTimeError::UndefinedVariable(_) => todo!(),
+            RunTimeError::UndefinedVariable(name) => write!(f, "Found undefined variable {} on line {}", name.lexeme, name.line)
         }
     }
 }
@@ -231,6 +231,15 @@ pub fn evaluate_expr<'a>(
         Expr::Variable(name) => {
             let value = env.get(name)?;
             Ok(value)
+        }
+        Expr::Assign { name, value } => {
+            let value = evaluate_expr(env, value)?;
+            if let Some(old_val) = env.map.get_mut(name.lexeme) {
+                *old_val = value;
+                Ok(LoxType::Nil.into())
+            } else {
+                Err(RunTimeError::UndefinedVariable(name))
+            }
         }
     }
 }

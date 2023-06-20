@@ -16,5 +16,9 @@ pub enum Expr<'a> {
         right: Box<Expr<'a>>,
     },
     Grouping(Box<Expr<'a>>),
-    Variable(&'a Token<'a>)
+    Variable(&'a Token<'a>),
+    Assign {
+        name: &'a Token<'a>,
+        value: Box<Expr<'a>>,
+    },
 }
