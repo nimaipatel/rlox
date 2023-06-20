@@ -244,17 +244,8 @@ fn parse_primary<'a>(
 
         TokenType::LeftParen => {
             let (expr, pos) = parse_expression(tokens, pos + 1)?;
-            match tokens.get(pos) {
-                Some(Token {
-                    token_type: TokenType::RightParen,
-                    ..
-                }) => Ok((Expr::Grouping(Box::new(expr)), pos + 1)),
-                _ => {
-                    return Err(ParseError::UnexpectedEndOfInput {
-                        expected: "right paren",
-                    });
-                }
-            }
+            let (_, pos) = consume(tokens, pos, TokenType::RightParen)?;
+            Ok(((Expr::Grouping(Box::new(expr))), pos))
         }
 
         invalid_token => Err(ParseError::InvalidToken {
