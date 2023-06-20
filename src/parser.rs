@@ -109,13 +109,13 @@ fn parse_var_declaration<'a>(
 ) -> Result<(Stmt<'a>, usize), ParseError> {
     let (name, pos) = consume(tokens, pos, &TokenType::Identifier)?;
 
-    match consume(tokens, pos, &TokenType::Equal) {
-        Ok((_, pos)) => {
+    match matchh(tokens, pos, vec![TokenType::Equal]) {
+        Some((_, pos)) => {
             let (initializer, pos) = parse_expression(tokens, pos)?;
             let (_, pos) = consume(tokens, pos, &TokenType::Semicolon)?;
             Ok((Stmt::Var(name, Some(initializer)), pos))
         }
-        Err(_) => {
+        None => {
             let (_, pos) = consume(tokens, pos, &TokenType::Semicolon)?;
             Ok((Stmt::Var(name, None), pos))
         }
@@ -166,6 +166,19 @@ fn consume<'a>(
     }
 }
 
+fn matchh<'a>(
+    tokens: &'a Vec<Token<'a>>,
+    pos: usize,
+    expected: Vec<TokenType<'a>>,
+) -> Option<(&'a Token<'a>, usize)> {
+    for expected in expected.iter() {
+        if tokens[pos].token_type == *expected {
+            return Some((&tokens[pos], pos + 1));
+        }
+    }
+    None
+}
+
 fn parse_expression<'a>(
     tokens: &'a Vec<Token<'a>>,
     pos: usize,
@@ -178,8 +191,8 @@ fn parse_assignment<'a>(
     pos: usize,
 ) -> Result<(Expr<'a>, usize), ParseError> {
     let (expr, pos) = parse_equality(tokens, pos)?;
-    match consume(tokens, pos, &TokenType::Equal) {
-        Ok((equals, pos)) => {
+    match matchh(tokens, pos, vec![TokenType::Equal]) {
+        Some((equals, pos)) => {
             let (value, pos) = parse_assignment(tokens, pos)?;
             match expr {
                 Expr::Variable(name) => Ok((
@@ -192,7 +205,7 @@ fn parse_assignment<'a>(
                 _ => Err(ParseError::InvalidAssignment { equals }),
             }
         }
-        Err(_) => Ok((expr, pos)),
+        None => Ok((expr, pos)),
     }
 }
 
