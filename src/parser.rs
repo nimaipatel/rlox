@@ -67,6 +67,7 @@ pub fn parse<'a>(tokens: &'a Vec<Token<'a>>) -> Result<Vec<Stmt<'a>>, ParseError
     Ok(statements)
 }
 
+// add synchronization here
 fn parse_declaration<'a>(
     tokens: &'a Vec<Token<'a>>,
     pos: usize,

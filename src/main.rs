@@ -1,16 +1,19 @@
 mod expr;
-// mod interpreter;
+mod interpreter;
 mod parser;
 mod scanner;
 mod stmt;
 mod token;
 mod token_type;
+mod environment;
 
 use std::env;
 use std::error::Error;
 use std::fs::File;
 use std::io::{self, BufRead, Read, Write};
 use std::process;
+
+use environment::Environment;
 
 // static mut HAD_ERROR: bool = false;
 
@@ -28,6 +31,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 }
 
 fn run_prompt() -> io::Result<()> {
+    let mut env = Environment::new();
     let stdin = io::stdin();
     loop {
         print!("> ");
@@ -37,7 +41,7 @@ fn run_prompt() -> io::Result<()> {
         if line.is_empty() {
             break;
         } else {
-            run(&line);
+            run(&mut env, &line);
             // unsafe { HAD_ERROR = false };
         }
     }
@@ -49,22 +53,22 @@ fn run_file(args: &str) -> io::Result<()> {
     let mut file = File::open(args)?;
     let mut contents = String::new();
     file.read_to_string(&mut contents)?;
-    run(&contents);
+    let mut env = Environment::new();
+    run(&mut env, &contents);
     // if unsafe { HAD_ERROR } == true {
     //     process::exit(65)
     // };
     Ok(())
 }
 
-fn run(source: &str) {
+fn run(env: &mut Environment, source: &str) {
     match scanner::scan(source) {
         Ok(tokens) => match parser::parse(&tokens) {
             Ok(stmts) => {
-                dbg!(stmts);
-                // match interpreter::interpret(&stmts) {
-                //     Ok(_) => (),
-                //     Err(e) => println!("Runtime error: {}", e),
-                // };
+                match interpreter::interpret(env, &stmts) {
+                    Ok(_) => (),
+                    Err(e) => println!("Runtime error: {}", e),
+                };
             }
             Err(e) => println!("Parse error: {}", e),
         },

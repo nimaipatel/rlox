@@ -1,6 +1,9 @@
 use std::{error::Error, fmt::Display};
+use std::rc::Rc;
 
-use crate::{expr::Expr, stmt::Stmt, token::Token, token_type::TokenType};
+use crate::{
+    environment::Environment, expr::Expr, stmt::Stmt, token::Token, token_type::TokenType,
+};
 
 #[derive(Debug, PartialEq)]
 pub enum LoxType {
@@ -35,6 +38,7 @@ pub enum RunTimeError<'a> {
         left: LoxType,
         right: LoxType,
     },
+    UndefinedVariable(&'a Token<'a>),
 }
 
 impl<'a> Error for RunTimeError<'a> {}
@@ -56,13 +60,17 @@ impl<'a> Display for RunTimeError<'a> {
                 "Operands for the binary operator {:?} on line {} must be numbers but found {:?} and {:?}",
                 operator, operator.line, left, right
             ),
+            RunTimeError::UndefinedVariable(_) => todo!(),
         }
     }
 }
 
-pub fn interpret<'a>(stmts: &'a Vec<Stmt<'a>>) -> Result<(), RunTimeError<'a>> {
+pub fn interpret<'a>(
+    env: &mut Environment,
+    stmts: &'a Vec<Stmt<'a>>,
+) -> Result<(), RunTimeError<'a>> {
     for stmt in stmts.iter() {
-        evaluate_stmt(stmt)?;
+        evaluate_stmt(env, stmt)?;
     }
     Ok(())
 }
@@ -75,29 +83,41 @@ fn is_truthy<'a>(lox_type: &'a LoxType) -> bool {
     }
 }
 
-pub fn evaluate_stmt<'a>(stmt: &'a Stmt) -> Result<(), RunTimeError<'a>> {
+pub fn evaluate_stmt<'a>(env: &mut Environment, stmt: &'a Stmt) -> Result<(), RunTimeError<'a>> {
     match stmt {
         Stmt::Print(expr) => {
-            let value = evaluate_expr(expr)?;
+            let value = evaluate_expr(env, expr)?;
             println!("{}", value.stringify());
             Ok(())
         }
         Stmt::Expression(expr) => {
-            evaluate_expr(expr)?;
+            evaluate_expr(env, expr)?;
+            Ok(())
+        }
+        Stmt::Var(name, Some(initializer)) => {
+            let value = evaluate_expr(env, initializer)?;
+            env.define(name.lexeme.into(), value);
+            Ok(())
+        }
+        Stmt::Var(name, None) => {
+            env.define(name.lexeme.into(), LoxType::Nil);
             Ok(())
         }
     }
 }
 
-pub fn evaluate_expr<'a>(expr: &'a Expr) -> Result<LoxType, RunTimeError<'a>> {
+pub fn evaluate_expr<'a>(
+    env: &mut Environment,
+    expr: &'a Expr,
+) -> Result<LoxType, RunTimeError<'a>> {
     match expr {
         Expr::StringLiteral(s) => Ok(LoxType::String(s.to_string())),
         Expr::NumericLiteral(n) => Ok(LoxType::Number(*n as f64)),
         Expr::BoolLiteral(b) => Ok(LoxType::Boolean(*b)),
         Expr::NilLiteral => Ok(LoxType::Nil),
-        Expr::Grouping(expr) => evaluate_expr(expr),
+        Expr::Grouping(expr) => evaluate_expr(env, expr),
         Expr::Unary { op, expr } => {
-            let right = evaluate_expr(expr)?;
+            let right = evaluate_expr(env, expr)?;
             match (&op.token_type, &right) {
                 (TokenType::Bang, _) => Ok(LoxType::Boolean(!is_truthy(&right))),
                 (TokenType::Minus, LoxType::Number(n)) => Ok(LoxType::Number(*n)),
@@ -109,8 +129,8 @@ pub fn evaluate_expr<'a>(expr: &'a Expr) -> Result<LoxType, RunTimeError<'a>> {
             }
         }
         Expr::Binary { left, op, right } => {
-            let left = evaluate_expr(left)?;
-            let right = evaluate_expr(right)?;
+            let left = evaluate_expr(env, left)?;
+            let right = evaluate_expr(env, right)?;
             match (left, &op.token_type, right) {
                 (LoxType::Number(n1), TokenType::Minus, LoxType::Number(n2)) => {
                     Ok(LoxType::Number(n1 - n2))
@@ -199,6 +219,10 @@ pub fn evaluate_expr<'a>(expr: &'a Expr) -> Result<LoxType, RunTimeError<'a>> {
                 }),
                 _ => unreachable!(),
             }
+        }
+        Expr::Variable(name) => {
+            let value = env.get(name)?;
+            Ok(value)
         }
     }
 }

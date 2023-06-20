@@ -2,7 +2,7 @@ use crate::token_type::TokenType;
 #[derive(Debug, PartialEq)]
 pub struct Token<'a> {
     pub token_type: TokenType<'a>,
-    lexeme: &'a str,
+    pub lexeme: &'a str,
     pub line: usize,
 }
 
