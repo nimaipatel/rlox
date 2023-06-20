@@ -1,11 +1,12 @@
+mod environment;
 mod expr;
 mod interpreter;
 mod parser;
 mod scanner;
 mod stmt;
+mod tests;
 mod token;
 mod token_type;
-mod environment;
 
 use std::env;
 use std::error::Error;
@@ -14,8 +15,7 @@ use std::io::{self, BufRead, Read, Write};
 use std::process;
 
 use environment::Environment;
-
-// static mut HAD_ERROR: bool = false;
+use parser::parse;
 
 fn main() -> Result<(), Box<dyn Error>> {
     let args = env::args().collect::<Vec<_>>();
@@ -55,32 +55,22 @@ fn run_file(args: &str) -> io::Result<()> {
     file.read_to_string(&mut contents)?;
     let mut env = Environment::new();
     run(&mut env, &contents);
-    // if unsafe { HAD_ERROR } == true {
-    //     process::exit(65)
-    // };
     Ok(())
 }
 
 fn run(env: &mut Environment, source: &str) {
     match scanner::scan(source) {
-        Ok(tokens) => match parser::parse(&tokens) {
-            Ok(stmts) => {
+        Ok(tokens) => {
+            let (stmts, errs) = parse(&tokens);
+            if errs.is_empty() {
                 match interpreter::interpret(env, &stmts) {
                     Ok(_) => (),
                     Err(e) => println!("Runtime error: {}", e),
-                };
+                }
+            } else {
+                errs.iter().for_each(|e| println!("{}", e));
             }
-            Err(e) => println!("Parse error: {}", e),
-        },
+        }
         Err(e) => println!("Lexing error: {}", e),
     }
 }
-
-// fn error(line: usize, message: &str) {
-//     report(line, "", message);
-// }
-
-// fn report(line: usize, place: &str, message: &str) {
-//     eprint!("[line {}] Error{}: {}", line, place, message);
-//     unsafe { HAD_ERROR = true };
-// }

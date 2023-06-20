@@ -77,22 +77,51 @@ impl<'a> fmt::Display for ParseError<'a> {
     }
 }
 
-pub fn parse<'a>(tokens: &'a Vec<Token<'a>>) -> Result<Vec<Stmt<'a>>, ParseError> {
+pub fn parse<'a>(tokens: &'a Vec<Token<'a>>) -> (Vec<Stmt<'a>>, Vec<ParseError>) {
     let mut statements = Vec::new();
-    let mut cur: usize = 0;
+    let mut errors = Vec::new();
+    let mut pos: usize = 0;
     loop {
-        if tokens[cur].token_type == TokenType::Eof {
+        if tokens[pos].token_type == TokenType::Eof {
             break;
         } else {
-            let (statement, new_cur) = parse_declaration(&tokens, cur)?;
-            cur = new_cur;
-            statements.push(statement);
+            match parse_declaration(tokens, pos) {
+                Ok((statement, new_pos)) => {
+                    pos = new_pos;
+                    statements.push(statement);
+                }
+                Err(e) => {
+                    errors.push(e);
+                    pos = synchronize(tokens, pos);
+                }
+            }
         }
     }
-    Ok(statements)
+    ((statements, errors))
 }
 
-// add synchronization here
+fn synchronize(tokens: &[Token<'_>], pos: usize) -> usize {
+    let mut pos = pos + 1;
+    loop {
+        match tokens[pos].token_type {
+            TokenType::Eof => break,
+            TokenType::Class => break,
+            TokenType::Fun => break,
+            TokenType::Var => break,
+            TokenType::For => break,
+            TokenType::While => break,
+            TokenType::Print => break,
+            TokenType::Return => break,
+            TokenType::Semicolon => {
+                pos += 1;
+                break;
+            }
+            _ => pos += 1,
+        }
+    }
+    pos
+}
+
 fn parse_declaration<'a>(
     tokens: &'a Vec<Token<'a>>,
     pos: usize,
