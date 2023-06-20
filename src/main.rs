@@ -1,5 +1,5 @@
 mod expr;
-mod interpreter;
+// mod interpreter;
 mod parser;
 mod scanner;
 mod stmt;
@@ -60,10 +60,11 @@ fn run(source: &str) {
     match scanner::scan(source) {
         Ok(tokens) => match parser::parse(&tokens) {
             Ok(stmts) => {
-                match interpreter::interpret(&stmts) {
-                    Ok(_) => (),
-                    Err(e) => println!("Runtime error: {}", e),
-                };
+                dbg!(stmts);
+                // match interpreter::interpret(&stmts) {
+                //     Ok(_) => (),
+                //     Err(e) => println!("Runtime error: {}", e),
+                // };
             }
             Err(e) => println!("Parse error: {}", e),
         },

@@ -8,10 +8,12 @@ use crate::token::Token;
 use crate::token_type::TokenType;
 use crate::{scanner, token_type};
 
-// program        → statement* EOF ;
+// program        → declaration* EOF ;
 
-// statement      → exprStmt
-//                | printStmt ;
+// declaration    → varDecl
+//                | statement ;
+
+// varDecl        → "var" IDENTIFIER ( "=" expression )? ";" ;
 
 // exprStmt       → expression ";" ;
 // printStmt      → "print" expression ";" ;
@@ -23,8 +25,10 @@ use crate::{scanner, token_type};
 // factor         → unary ( ( "/" | "*" ) unary )* ;
 // unary          → ( "!" | "-" ) unary
 //                | primary ;
-// primary        → NUMBER | STRING | "true" | "false" | "nil"
-//                | "(" expression ")" ;
+// primary        → "true" | "false" | "nil"
+//                | NUMBER | STRING
+//                | "(" expression ")"
+//                | IDENTIFIER ;
 
 // TODO: make ParseError accept the token to get line information
 #[derive(Debug, PartialEq)]
@@ -55,12 +59,41 @@ pub fn parse<'a>(tokens: &'a Vec<Token<'a>>) -> Result<Vec<Stmt<'a>>, ParseError
         if tokens[cur].token_type == TokenType::Eof {
             break;
         } else {
-            let (statement, new_cur) = parse_statement(&tokens, cur)?;
+            let (statement, new_cur) = parse_declaration(&tokens, cur)?;
             cur = new_cur;
             statements.push(statement);
         }
     }
     Ok(statements)
+}
+
+fn parse_declaration<'a>(
+    tokens: &'a Vec<Token<'a>>,
+    pos: usize,
+) -> Result<(Stmt<'a>, usize), ParseError> {
+    match tokens[pos].token_type {
+        TokenType::Var => parse_var_declaration(tokens, pos + 1),
+        _ => parse_statement(tokens, pos),
+    }
+}
+
+fn parse_var_declaration<'a>(
+    tokens: &'a Vec<Token<'a>>,
+    pos: usize,
+) -> Result<(Stmt<'a>, usize), ParseError> {
+    let (name, pos) = consume(tokens, pos, TokenType::Identifier)?;
+
+    match consume(tokens, pos, TokenType::Equal) {
+        Ok((_, pos)) => {
+            let (initializer, pos) = parse_expression(tokens, pos)?;
+            let (_, pos) = consume(tokens, pos, TokenType::Semicolon)?;
+            Ok((Stmt::Var(name, Some(initializer)), pos))
+        }
+        Err(_) => {
+            let (_, pos) = consume(tokens, pos, TokenType::Semicolon)?;
+            Ok((Stmt::Var(name, None), pos))
+        }
+    }
 }
 
 fn parse_statement<'a>(
@@ -78,7 +111,7 @@ fn parse_expression_statement<'a>(
     pos: usize,
 ) -> Result<(Stmt<'a>, usize), ParseError> {
     let (expr, pos) = parse_expression(tokens, pos)?;
-    let ((), pos) = consume(tokens, pos, TokenType::Semicolon)?;
+    let (_, pos) = consume(tokens, pos, TokenType::Semicolon)?;
     return Ok((Stmt::Expression(expr), pos));
 }
 
@@ -87,18 +120,18 @@ fn parse_print_statement<'a>(
     pos: usize,
 ) -> Result<(Stmt<'a>, usize), ParseError> {
     let (value, pos) = parse_expression(tokens, pos)?;
-    let ((), pos) = consume(tokens, pos, TokenType::Semicolon)?;
+    let (_, pos) = consume(tokens, pos, TokenType::Semicolon)?;
     return Ok((Stmt::Print(value), pos));
 }
 
 // TODO: replace all instances of the consuming pattern with this function
 fn consume<'a>(
-    tokens: &Vec<Token<'a>>,
+    tokens: &'a Vec<Token<'a>>,
     pos: usize,
     expected: TokenType,
-) -> Result<((), usize), ParseError> {
+) -> Result<(&'a Token<'a>, usize), ParseError> {
     if tokens[pos].token_type == expected {
-        Ok(((), pos + 1))
+        Ok((&tokens[pos], pos + 1))
     } else {
         Err(ParseError::ExpectedSomething {
             something: format!("{:?}", expected),
@@ -246,6 +279,10 @@ fn parse_primary<'a>(
             let (expr, pos) = parse_expression(tokens, pos + 1)?;
             let (_, pos) = consume(tokens, pos, TokenType::RightParen)?;
             Ok(((Expr::Grouping(Box::new(expr))), pos))
+        }
+        
+        TokenType::Identifier => {
+            Ok((Expr::Variable(token), pos + 1))
         }
 
         invalid_token => Err(ParseError::InvalidToken {
