@@ -1,5 +1,6 @@
-use std::{error::Error, fmt::Display};
+use std::fmt::format;
 use std::rc::Rc;
+use std::{error::Error, fmt::Display};
 
 use crate::{
     environment::Environment, expr::Expr, stmt::Stmt, token::Token, token_type::TokenType,
@@ -31,12 +32,12 @@ impl LoxType {
 pub enum RunTimeError<'a> {
     OperandShouldBeNumber {
         operator: &'a Token<'a>,
-        operand: LoxType,
+        operand: Rc<LoxType>,
     },
     OperandsShouldBeNumber {
         op: &'a Token<'a>,
-        left: LoxType,
-        right: LoxType,
+        left: Rc<LoxType>,
+        right: Rc<LoxType>,
     },
     UndefinedVariable(&'a Token<'a>),
 }
@@ -100,7 +101,7 @@ pub fn evaluate_stmt<'a>(env: &mut Environment, stmt: &'a Stmt) -> Result<(), Ru
             Ok(())
         }
         Stmt::Var(name, None) => {
-            env.define(name.lexeme.into(), LoxType::Nil);
+            env.define(name.lexeme.into(), Rc::new(LoxType::Nil));
             Ok(())
         }
     }
@@ -109,114 +110,121 @@ pub fn evaluate_stmt<'a>(env: &mut Environment, stmt: &'a Stmt) -> Result<(), Ru
 pub fn evaluate_expr<'a>(
     env: &mut Environment,
     expr: &'a Expr,
-) -> Result<LoxType, RunTimeError<'a>> {
+) -> Result<Rc<LoxType>, RunTimeError<'a>> {
     match expr {
-        Expr::StringLiteral(s) => Ok(LoxType::String(s.to_string())),
-        Expr::NumericLiteral(n) => Ok(LoxType::Number(*n as f64)),
-        Expr::BoolLiteral(b) => Ok(LoxType::Boolean(*b)),
-        Expr::NilLiteral => Ok(LoxType::Nil),
+        Expr::StringLiteral(s) => Ok(Rc::new(LoxType::String(s.to_string()))),
+        Expr::NumericLiteral(n) => Ok(Rc::new(LoxType::Number(*n as f64))),
+        Expr::BoolLiteral(b) => Ok(Rc::new(LoxType::Boolean(*b))),
+        Expr::NilLiteral => Ok(Rc::new(LoxType::Nil)),
         Expr::Grouping(expr) => evaluate_expr(env, expr),
         Expr::Unary { op, expr } => {
             let right = evaluate_expr(env, expr)?;
-            match (&op.token_type, &right) {
-                (TokenType::Bang, _) => Ok(LoxType::Boolean(!is_truthy(&right))),
-                (TokenType::Minus, LoxType::Number(n)) => Ok(LoxType::Number(*n)),
-                (TokenType::Minus, _) => Err(RunTimeError::OperandShouldBeNumber {
-                    operator: *op,
-                    operand: right,
-                }),
+            match &op.token_type {
+                TokenType::Bang => Ok(Rc::new(LoxType::Boolean(!is_truthy(&right)))),
+                TokenType::Minus => match right.as_ref() {
+                    LoxType::Number(n) => Ok(Rc::new(LoxType::Number(n * -1.))),
+                    _ => Err(RunTimeError::OperandShouldBeNumber {
+                        operator: *op,
+                        operand: Rc::clone(&right),
+                    }),
+                },
                 _ => unreachable!(),
             }
         }
+
         Expr::Binary { left, op, right } => {
             let left = evaluate_expr(env, left)?;
             let right = evaluate_expr(env, right)?;
-            match (left, &op.token_type, right) {
-                (LoxType::Number(n1), TokenType::Minus, LoxType::Number(n2)) => {
-                    Ok(LoxType::Number(n1 - n2))
-                }
-                (left, TokenType::Minus, right) => Err(RunTimeError::OperandsShouldBeNumber {
-                    op: *op,
-                    left,
-                    right,
-                }),
-                (LoxType::Number(n1), TokenType::Slash, LoxType::Number(n2)) => {
-                    Ok(LoxType::Number(n1 / n2))
-                }
-                (left, TokenType::Slash, right) => Err(RunTimeError::OperandsShouldBeNumber {
-                    op: *op,
-                    left,
-                    right,
-                }),
-                (LoxType::Number(n1), TokenType::Star, LoxType::Number(n2)) => {
-                    Ok(LoxType::Number(n1 * n2))
-                }
-                (left, TokenType::Star, right) => Err(RunTimeError::OperandsShouldBeNumber {
-                    op: *op,
-                    left,
-                    right,
-                }),
-                (LoxType::Number(n1), TokenType::Plus, LoxType::Number(n2)) => {
-                    Ok(LoxType::Number(n1 + n2))
-                }
-                (LoxType::String(s1), TokenType::Plus, LoxType::String(s2)) => {
-                    Ok(LoxType::String(format!("{}{}", s1, s2)))
-                }
-                (left, TokenType::Plus, right) => Err(RunTimeError::OperandsShouldBeNumber {
-                    op: *op,
-                    left,
-                    right,
-                }),
-                (LoxType::Number(n1), TokenType::Greater, LoxType::Number(n2)) => {
-                    Ok(LoxType::Boolean(n1 > n2))
-                }
-                (left, TokenType::Greater, right) => Err(RunTimeError::OperandsShouldBeNumber {
-                    op: *op,
-                    left,
-                    right,
-                }),
-                (LoxType::Number(n1), TokenType::GreaterEqual, LoxType::Number(n2)) => {
-                    Ok(LoxType::Boolean(n1 >= n2))
-                }
-                (left, TokenType::GreaterEqual, right) => {
-                    Err(RunTimeError::OperandsShouldBeNumber {
+            match &op.token_type {
+                TokenType::Minus => match (left.as_ref(), right.as_ref()) {
+                    (LoxType::Number(n1), LoxType::Number(n2)) => {
+                        Ok(Rc::new(LoxType::Number(n1 - n2)))
+                    }
+                    _ => Err(RunTimeError::OperandsShouldBeNumber {
                         op: *op,
-                        left,
-                        right,
-                    })
+                        left: Rc::clone(&left),
+                        right: Rc::clone(&right),
+                    }),
+                },
+                TokenType::Slash => match (left.as_ref(), right.as_ref()) {
+                    (LoxType::Number(n1), LoxType::Number(n2)) => {
+                        Ok(Rc::new(LoxType::Number(n1 / n2)))
+                    }
+                    _ => Err(RunTimeError::OperandsShouldBeNumber {
+                        op: *op,
+                        left: Rc::clone(&left),
+                        right: Rc::clone(&right),
+                    }),
+                },
+                TokenType::Star => match (left.as_ref(), right.as_ref()) {
+                    (LoxType::Number(n1), LoxType::Number(n2)) => {
+                        Ok(Rc::new(LoxType::Number(n1 * n2)))
+                    }
+                    _ => Err(RunTimeError::OperandsShouldBeNumber {
+                        op: *op,
+                        left: Rc::clone(&left),
+                        right: Rc::clone(&right),
+                    }),
+                },
+                TokenType::Plus => match (left.as_ref(), right.as_ref()) {
+                    (LoxType::Number(n1), LoxType::Number(n2)) => {
+                        Ok(Rc::new(LoxType::Number(n1 + n2)))
+                    }
+                    (LoxType::String(s1), LoxType::String(s2)) => {
+                        Ok(Rc::new(LoxType::String(format!("{}{}", s1, s2))))
+                    }
+                    _ => Err(RunTimeError::OperandsShouldBeNumber {
+                        op: *op,
+                        left: Rc::clone(&left),
+                        right: Rc::clone(&right),
+                    }),
+                },
+                TokenType::Greater => match (left.as_ref(), right.as_ref()) {
+                    (LoxType::Number(n1), LoxType::Number(n2)) => {
+                        Ok(Rc::new(LoxType::Boolean(n1 > n2)))
+                    }
+                    _ => Err(RunTimeError::OperandsShouldBeNumber {
+                        op: *op,
+                        left: Rc::clone(&left),
+                        right: Rc::clone(&right),
+                    }),
+                },
+                TokenType::GreaterEqual => match (left.as_ref(), right.as_ref()) {
+                    (LoxType::Number(n1), LoxType::Number(n2)) => {
+                        Ok(Rc::new(LoxType::Boolean(n1 >= n2)))
+                    }
+                    _ => Err(RunTimeError::OperandsShouldBeNumber {
+                        op: *op,
+                        left: Rc::clone(&left),
+                        right: Rc::clone(&right),
+                    }),
+                },
+                TokenType::Less => match (left.as_ref(), right.as_ref()) {
+                    (LoxType::Number(n1), LoxType::Number(n2)) => {
+                        Ok(Rc::new(LoxType::Boolean(n1 < n2)))
+                    }
+                    _ => Err(RunTimeError::OperandsShouldBeNumber {
+                        op: *op,
+                        left: Rc::clone(&left),
+                        right: Rc::clone(&right),
+                    }),
+                },
+                TokenType::LessEqual => match (left.as_ref(), right.as_ref()) {
+                    (LoxType::Number(n1), LoxType::Number(n2)) => {
+                        Ok(Rc::new(LoxType::Boolean(n1 <= n2)))
+                    }
+                    _ => Err(RunTimeError::OperandsShouldBeNumber {
+                        op: *op,
+                        left: Rc::clone(&left),
+                        right: Rc::clone(&right),
+                    }),
+                },
+                TokenType::BangEqual => {
+                    Ok(Rc::new(LoxType::Boolean(left.as_ref() != right.as_ref())))
                 }
-                (LoxType::Number(n1), TokenType::Less, LoxType::Number(n2)) => {
-                    Ok(LoxType::Boolean(n1 > n2))
+                TokenType::EqualEqual => {
+                    Ok(Rc::new(LoxType::Boolean(left.as_ref() == right.as_ref())))
                 }
-                (left, TokenType::Less, right) => Err(RunTimeError::OperandsShouldBeNumber {
-                    op: *op,
-                    left,
-                    right,
-                }),
-                (LoxType::Number(n1), TokenType::LessEqual, LoxType::Number(n2)) => {
-                    Ok(LoxType::Boolean(n1 >= n2))
-                }
-                (left, TokenType::LessEqual, right) => Err(RunTimeError::OperandsShouldBeNumber {
-                    op: *op,
-                    left,
-                    right,
-                }),
-                (LoxType::Number(n1), TokenType::BangEqual, LoxType::Number(n2)) => {
-                    Ok(LoxType::Boolean(n1 != n2))
-                }
-                (left, TokenType::BangEqual, right) => Err(RunTimeError::OperandsShouldBeNumber {
-                    op: *op,
-                    left,
-                    right,
-                }),
-                (LoxType::Number(n1), TokenType::EqualEqual, LoxType::Number(n2)) => {
-                    Ok(LoxType::Boolean(n1 == n2))
-                }
-                (left, TokenType::EqualEqual, right) => Err(RunTimeError::OperandsShouldBeNumber {
-                    op: *op,
-                    left,
-                    right,
-                }),
                 _ => unreachable!(),
             }
         }
