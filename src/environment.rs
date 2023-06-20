@@ -6,12 +6,14 @@ use crate::{interpreter::LoxType, interpreter::RunTimeError, token::Token, token
 
 pub struct Environment {
     pub map: HashMap<String, Rc<LoxType>>,
+    pub enclosing: Option<Box<Environment>>,
 }
 
 impl Environment {
-    pub fn new() -> Self {
+    pub fn new(enclosing: Option<Box<Environment>>) -> Self {
         Self {
             map: HashMap::new(),
+            enclosing,
         }
     }
 
@@ -23,7 +25,10 @@ impl Environment {
         match &name.token_type {
             TokenType::Identifier => match self.map.get(name.lexeme) {
                 Some(lox_val) => Ok(Rc::clone(lox_val)),
-                None => Err(RunTimeError::UndefinedVariable(name)),
+                None => match &self.enclosing {
+                    Some(enclosing) => enclosing.get(name),
+                    None => Err(RunTimeError::UndefinedVariable(name)),
+                },
             },
             _ => unreachable!(),
         }
@@ -38,7 +43,10 @@ impl Environment {
             *old_val = value;
             Ok(LoxType::Nil.into())
         } else {
-            Err(RunTimeError::UndefinedVariable(name))
+            match &mut self.enclosing {
+                Some(enclosing) => enclosing.assign(name, value),
+                None => Err(RunTimeError::UndefinedVariable(name)),
+            }
         }
     }
 }

@@ -104,6 +104,9 @@ pub fn evaluate_stmt<'a>(env: &mut Environment, stmt: &'a Stmt) -> Result<(), Ru
             env.define(name.lexeme.into(), Rc::new(LoxType::Nil));
             Ok(())
         }
+        Stmt::Block(stmts) => {
+            todo!();
+        }
     }
 }
 

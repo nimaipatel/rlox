@@ -30,7 +30,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 }
 
 fn run_prompt() -> io::Result<()> {
-    let mut env = Environment::new();
+    let mut env = Environment::new(None);
     let stdin = io::stdin();
     loop {
         print!("> ");
@@ -52,7 +52,7 @@ fn run_file(args: &str) -> io::Result<()> {
     let mut file = File::open(args)?;
     let mut contents = String::new();
     file.read_to_string(&mut contents)?;
-    let mut env = Environment::new();
+    let mut env = Environment::new(None);
     run(&mut env, &contents);
     Ok(())
 }
@@ -61,14 +61,15 @@ fn run(env: &mut Environment, source: &str) {
     match scanner::scan(source) {
         Ok(tokens) => {
             let (stmts, errs) = parse(&tokens);
-            if errs.is_empty() {
-                match interpreter::interpret(env, &stmts) {
-                    Ok(_) => (),
-                    Err(e) => println!("Runtime error: {}", e),
-                }
-            } else {
-                errs.iter().for_each(|e| println!("{}", e));
-            }
+            dbg!(&stmts, &errs);
+            // if errs.is_empty() {
+            //     match interpreter::interpret(env, &stmts) {
+            //         Ok(_) => (),
+            //         Err(e) => println!("Runtime error: {}", e),
+            //     }
+            // } else {
+            //     errs.iter().for_each(|e| println!("{}", e));
+            // }
         }
         Err(e) => println!("Lexing error: {}", e),
     }

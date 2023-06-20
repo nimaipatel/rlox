@@ -10,8 +10,11 @@ use crate::{scanner, token_type};
 
 // program        → declaration* EOF ;
 
-// declaration    → varDecl
-//                | statement ;
+// statement      → exprStmt
+//                | printStmt
+//                | block ;
+
+// block          → "{" declaration* "}" ;
 
 // varDecl        → "var" IDENTIFIER ( "=" expression )? ";" ;
 
@@ -157,7 +160,30 @@ fn parse_statement<'a>(
 ) -> Result<(Stmt<'a>, usize), ParseError> {
     match tokens[pos].token_type {
         TokenType::Print => parse_print_statement(tokens, pos + 1),
+        TokenType::LeftBrace => parse_block(tokens, pos + 1),
         _ => parse_expression_statement(tokens, pos),
+    }
+}
+
+fn parse_block<'a>(
+    tokens: &'a Vec<Token<'a>>,
+    pos: usize,
+) -> Result<(Stmt<'a>, usize), ParseError> {
+    let mut pos = pos;
+    let mut statements = Vec::new();
+
+    loop {
+        match tokens[pos].token_type {
+            TokenType::Eof | TokenType::RightBrace => {
+                let (_, pos) = consume(tokens, pos, &TokenType::RightBrace)?;
+                return Ok((Stmt::Block(statements), pos));
+            }
+            _ => {
+                let (statement, new_pos) = parse_declaration(tokens, pos)?;
+                pos = new_pos;
+                statements.push(statement);
+            }
+        }
     }
 }
 
