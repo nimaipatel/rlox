@@ -234,12 +234,7 @@ pub fn evaluate_expr<'a>(
         }
         Expr::Assign { name, value } => {
             let value = evaluate_expr(env, value)?;
-            if let Some(old_val) = env.map.get_mut(name.lexeme) {
-                *old_val = value;
-                Ok(LoxType::Nil.into())
-            } else {
-                Err(RunTimeError::UndefinedVariable(name))
-            }
+            env.assign(name, value)
         }
     }
 }

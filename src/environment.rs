@@ -1,5 +1,6 @@
-use std::collections::HashMap;
+use std::env;
 use std::rc::Rc;
+use std::{collections::HashMap, hash::Hash};
 
 use crate::{interpreter::LoxType, interpreter::RunTimeError, token::Token, token_type::TokenType};
 
@@ -25,6 +26,19 @@ impl Environment {
                 None => Err(RunTimeError::UndefinedVariable(name)),
             },
             _ => unreachable!(),
+        }
+    }
+
+    pub fn assign<'a>(
+        &mut self,
+        name: &'a Token<'a>,
+        value: Rc<LoxType>,
+    ) -> Result<Rc<LoxType>, RunTimeError<'a>> {
+        if let Some(old_val) = self.map.get_mut(name.lexeme) {
+            *old_val = value;
+            Ok(LoxType::Nil.into())
+        } else {
+            Err(RunTimeError::UndefinedVariable(name))
         }
     }
 }
