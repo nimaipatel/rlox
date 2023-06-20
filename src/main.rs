@@ -1,9 +1,10 @@
-mod scanner;
-mod parser;
-mod token;
-mod token_type;
 mod expr;
 mod interpreter;
+mod parser;
+mod scanner;
+mod stmt;
+mod token;
+mod token_type;
 
 use std::env;
 use std::error::Error;
@@ -56,10 +57,18 @@ fn run_file(args: &str) -> io::Result<()> {
 }
 
 fn run(source: &str) {
-    let tokens = scanner::scan(source).unwrap();
-    let expr = parser::parse(&tokens).unwrap();
-    let value = interpreter::evaluate(&expr);
-    dbg!(value);
+    match scanner::scan(source) {
+        Ok(tokens) => match parser::parse(&tokens) {
+            Ok(stmts) => {
+                match interpreter::interpret(&stmts) {
+                    Ok(_) => (),
+                    Err(e) => println!("Runtime error: {}", e),
+                };
+            }
+            Err(e) => println!("Parse error: {}", e),
+        },
+        Err(e) => println!("Lexing error: {}", e),
+    }
 }
 
 // fn error(line: usize, message: &str) {

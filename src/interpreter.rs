@@ -1,6 +1,6 @@
 use std::{error::Error, fmt::Display};
 
-use crate::{expr::Expr, token::Token, token_type::TokenType};
+use crate::{expr::Expr, stmt::Stmt, token::Token, token_type::TokenType};
 
 #[derive(Debug, PartialEq)]
 pub enum LoxType {
@@ -8,6 +8,20 @@ pub enum LoxType {
     Boolean(bool),
     Number(f64),
     String(String),
+}
+
+impl LoxType {
+    fn stringify(&self) -> String {
+        match self {
+            LoxType::Nil => "Nil".into(),
+            LoxType::Boolean(b) => match b {
+                true => "true".into(),
+                false => "false".into(),
+            },
+            LoxType::Number(n) => format!("{}", n),
+            LoxType::String(s) => s.clone(),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -46,6 +60,13 @@ impl<'a> Display for RunTimeError<'a> {
     }
 }
 
+pub fn interpret<'a>(stmts: &'a Vec<Stmt<'a>>) -> Result<(), RunTimeError<'a>> {
+    for stmt in stmts.iter() {
+        evaluate_stmt(stmt)?;
+    }
+    Ok(())
+}
+
 fn is_truthy<'a>(lox_type: &'a LoxType) -> bool {
     match lox_type {
         LoxType::Nil => false,
@@ -54,15 +75,29 @@ fn is_truthy<'a>(lox_type: &'a LoxType) -> bool {
     }
 }
 
-pub fn evaluate<'a, 'b>(expr: &'a Expr) -> Result<LoxType, RunTimeError<'a>> {
+pub fn evaluate_stmt<'a>(stmt: &'a Stmt) -> Result<(), RunTimeError<'a>> {
+    match stmt {
+        Stmt::Print(expr) => {
+            let value = evaluate_expr(expr)?;
+            println!("{}", value.stringify());
+            Ok(())
+        }
+        Stmt::Expression(expr) => {
+            evaluate_expr(expr)?;
+            Ok(())
+        }
+    }
+}
+
+pub fn evaluate_expr<'a>(expr: &'a Expr) -> Result<LoxType, RunTimeError<'a>> {
     match expr {
         Expr::StringLiteral(s) => Ok(LoxType::String(s.to_string())),
         Expr::NumericLiteral(n) => Ok(LoxType::Number(*n as f64)),
         Expr::BoolLiteral(b) => Ok(LoxType::Boolean(*b)),
         Expr::NilLiteral => Ok(LoxType::Nil),
-        Expr::Grouping(expr) => evaluate(expr),
+        Expr::Grouping(expr) => evaluate_expr(expr),
         Expr::Unary { op, expr } => {
-            let right = evaluate(expr)?;
+            let right = evaluate_expr(expr)?;
             match (&op.token_type, &right) {
                 (TokenType::Bang, _) => Ok(LoxType::Boolean(!is_truthy(&right))),
                 (TokenType::Minus, LoxType::Number(n)) => Ok(LoxType::Number(*n)),
@@ -74,8 +109,8 @@ pub fn evaluate<'a, 'b>(expr: &'a Expr) -> Result<LoxType, RunTimeError<'a>> {
             }
         }
         Expr::Binary { left, op, right } => {
-            let left = evaluate(left)?;
-            let right = evaluate(right)?;
+            let left = evaluate_expr(left)?;
+            let right = evaluate_expr(right)?;
             match (left, &op.token_type, right) {
                 (LoxType::Number(n1), TokenType::Minus, LoxType::Number(n2)) => {
                     Ok(LoxType::Number(n1 - n2))

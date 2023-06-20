@@ -1,10 +1,20 @@
 use core::fmt;
 use std::error::Error;
+use std::fmt::{format, write};
 
 use crate::expr::Expr;
+use crate::stmt::{self, Stmt};
 use crate::token::Token;
 use crate::token_type::TokenType;
 use crate::{scanner, token_type};
+
+// program        → statement* EOF ;
+
+// statement      → exprStmt
+//                | printStmt ;
+
+// exprStmt       → expression ";" ;
+// printStmt      → "print" expression ";" ;
 
 // expression     → equality ;
 // equality       → comparison ( ( "!=" | "==" ) comparison )* ;
@@ -16,10 +26,12 @@ use crate::{scanner, token_type};
 // primary        → NUMBER | STRING | "true" | "false" | "nil"
 //                | "(" expression ")" ;
 
+// TODO: make ParseError accept the token to get line information
 #[derive(Debug, PartialEq)]
 pub enum ParseError {
     UnexpectedEndOfInput { expected: &'static str },
     InvalidToken { token: String },
+    ExpectedSomething { something: String },
 }
 
 impl Error for ParseError {}
@@ -31,15 +43,66 @@ impl fmt::Display for ParseError {
                 write! {f, "Unexpected end of input, expected {} token", expected}
             }
             ParseError::InvalidToken { token } => write!(f, "Found invalid token {}", token),
+            ParseError::ExpectedSomething { something: token } => write!(f, "Expected {}", token),
         }
     }
 }
 
-pub fn parse<'a>(tokens: &'a Vec<Token<'a>>) -> Result<Expr<'a>, ParseError> {
-    let parsed = parse_expression(&tokens, 0);
-    match parsed {
-        Err(e) => Err(e),
-        Ok((parsed, _)) => Ok(parsed),
+pub fn parse<'a>(tokens: &'a Vec<Token<'a>>) -> Result<Vec<Stmt<'a>>, ParseError> {
+    let mut statements = Vec::new();
+    let mut cur: usize = 0;
+    loop {
+        if tokens[cur].token_type == TokenType::Eof {
+            break;
+        } else {
+            let (statement, new_cur) = parse_statement(&tokens, cur)?;
+            cur = new_cur;
+            statements.push(statement);
+        }
+    }
+    Ok(statements)
+}
+
+fn parse_statement<'a>(
+    tokens: &'a Vec<Token<'a>>,
+    pos: usize,
+) -> Result<(Stmt<'a>, usize), ParseError> {
+    match tokens[pos].token_type {
+        TokenType::Print => parse_print_statement(tokens, pos + 1),
+        _ => parse_expression_statement(tokens, pos),
+    }
+}
+
+fn parse_expression_statement<'a>(
+    tokens: &'a Vec<Token<'a>>,
+    pos: usize,
+) -> Result<(Stmt<'a>, usize), ParseError> {
+    let (expr, pos) = parse_expression(tokens, pos)?;
+    let ((), pos) = consume(tokens, pos, TokenType::Semicolon)?;
+    return Ok((Stmt::Expression(expr), pos));
+}
+
+fn parse_print_statement<'a>(
+    tokens: &'a Vec<Token<'a>>,
+    pos: usize,
+) -> Result<(Stmt<'a>, usize), ParseError> {
+    let (value, pos) = parse_expression(tokens, pos)?;
+    let ((), pos) = consume(tokens, pos, TokenType::Semicolon)?;
+    return Ok((Stmt::Print(value), pos));
+}
+
+// TODO: replace all instances of the consuming pattern with this function
+fn consume<'a>(
+    tokens: &Vec<Token<'a>>,
+    pos: usize,
+    expected: TokenType,
+) -> Result<((), usize), ParseError> {
+    if tokens[pos].token_type == expected {
+        Ok(((), pos + 1))
+    } else {
+        Err(ParseError::ExpectedSomething {
+            something: format!("{:?}", expected),
+        })
     }
 }
 
@@ -320,16 +383,5 @@ mod tests {
         let tokens = scanner::scan(source).unwrap();
         let (actual, _) = parse_primary(&tokens, 0).unwrap();
         assert!(matches!(actual, Expr::Grouping(..)))
-    }
-
-    #[test]
-    fn test_grouping_fail() {
-        let source = "123 > (1 + 3";
-        let tokens = scanner::scan(source).unwrap();
-        let actual = parse(&tokens);
-        assert_eq!(
-            actual,
-            Err(ParseError::UnexpectedEndOfInput { expected: "right paren" })
-        );
     }
 }
