@@ -144,7 +144,8 @@ pub fn scan<'a>(src: &'a str) -> Result<Vec<Token<'a>>, ScanError> {
                             end_idx += 1; // consume the '.'
                             chars.next();
 
-                            while let peek = chars.peek() {
+                            loop {
+                                let peek = chars.peek();
                                 match peek {
                                     Some((_, digit)) if digit.is_digit(10) => {
                                         end_idx += 1;

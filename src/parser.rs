@@ -1,12 +1,10 @@
 use core::fmt;
 use std::error::Error;
-use std::fmt::{format, write};
 
 use crate::expr::Expr;
-use crate::stmt::{self, Stmt};
+use crate::stmt::Stmt;
 use crate::token::Token;
 use crate::token_type::TokenType;
-use crate::{scanner, token_type};
 
 // program        → declaration* EOF ;
 
@@ -100,7 +98,7 @@ pub fn parse<'a>(tokens: &'a Vec<Token<'a>>) -> (Vec<Stmt<'a>>, Vec<ParseError>)
             }
         }
     }
-    ((statements, errors))
+    (statements, errors)
 }
 
 fn synchronize(tokens: &[Token<'_>], pos: usize) -> usize {
@@ -401,12 +399,14 @@ fn parse_primary<'a>(
 
         TokenType::Identifier => Ok((Expr::Variable(token), pos + 1)),
 
-        invalid_token => Err(ParseError::InvalidToken { token }),
+        _ => Err(ParseError::InvalidToken { token }),
     }
 }
 
+#[cfg(test)]
 mod tests {
     use super::*;
+    use crate::scanner;
 
     #[test]
     fn test_parse_literal() {

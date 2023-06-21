@@ -1,7 +1,6 @@
-use std::cell::{Ref, RefCell};
-use std::env;
+use std::cell::{ RefCell};
 use std::rc::Rc;
-use std::{collections::HashMap, hash::Hash};
+use std::{collections::HashMap};
 
 use crate::{interpreter::LoxType, interpreter::RunTimeError, token::Token, token_type::TokenType};
 
