@@ -271,5 +271,13 @@ pub fn evaluate_expr<'a>(
             let value = evaluate_expr(env, value)?;
             env.assign(name, value)
         }
+        Expr::Logical { left, op, right } => {
+            let left = evaluate_expr(env, left)?;
+            match (is_truthy(&left), &op.token_type) {
+                (true, TokenType::Or) | (false, TokenType::And) => Ok(left),
+                (false, TokenType::Or) | (true, TokenType::And) => evaluate_expr(env, &right),
+                _ => unreachable!(),
+            }
+        }
     }
 }

@@ -6,6 +6,11 @@ pub enum Expr<'a> {
     NumericLiteral(f64),
     BoolLiteral(bool),
     NilLiteral,
+    Logical {
+        left: Box<Expr<'a>>,
+        op: &'a Token<'a>,
+        right: Box<Expr<'a>>
+    },
     Unary {
         op: &'a Token<'a>,
         expr: Box<Expr<'a>>,

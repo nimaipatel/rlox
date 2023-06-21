@@ -24,7 +24,12 @@ use crate::token_type::TokenType;
 // exprStmt       → expression ";" ;
 // printStmt      → "print" expression ";" ;
 
-// expression     → equality ;
+// expression     → assignment ;
+// assignment     → IDENTIFIER "=" assignment
+//                | logic_or ;
+// logic_or       → logic_and ( "or" logic_and )* ;
+// logic_and      → equality ( "and" equality )* ;
+
 // equality       → comparison ( ( "!=" | "==" ) comparison )* ;
 // comparison     → term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
 // term           → factor ( ( "-" | "+" ) factor )* ;
@@ -280,7 +285,7 @@ fn parse_assignment<'a>(
     tokens: &'a Vec<Token<'a>>,
     pos: usize,
 ) -> Result<(Expr<'a>, usize), ParseError> {
-    let (expr, pos) = parse_equality(tokens, pos)?;
+    let (expr, pos) = parse_or(tokens, pos)?;
     match matchh(tokens, pos, vec![TokenType::Equal]) {
         Some((equals, pos)) => {
             let (value, pos) = parse_assignment(tokens, pos)?;
@@ -297,6 +302,51 @@ fn parse_assignment<'a>(
         }
         None => Ok((expr, pos)),
     }
+}
+
+fn parse_or<'a>(
+    tokens: &'a Vec<Token<'a>>,
+    pos: usize,
+) -> Result<(Expr<'a>, usize), ParseError<'a>> {
+    let (mut expr, mut pos) = parse_and(tokens, pos)?;
+    loop {
+        match matchh(tokens, pos, vec![TokenType::Or]) {
+            None => break,
+            Some((tok_or, new_pos)) => {
+                let (right, new_pos) = parse_and(tokens, new_pos)?;
+                pos = new_pos;
+                expr = Expr::Logical {
+                    left: Box::new(expr),
+                    op: tok_or,
+                    right: Box::new(right),
+                }
+            }
+        }
+    }
+    Ok((expr, pos))
+}
+
+fn parse_and<'a>(
+    tokens: &'a Vec<Token<'a>>,
+    pos: usize,
+) -> Result<(Expr<'a>, usize), ParseError<'a>> {
+    let (mut expr, mut pos) = parse_equality(
+        tokens, pos)?;
+    loop {
+        match matchh(tokens, pos, vec![TokenType::And]) {
+            None => break,
+            Some((tok_or, new_pos)) => {
+                let (right, new_pos) = parse_equality(tokens, new_pos)?;
+                pos = new_pos;
+                expr = Expr::Logical {
+                    left: Box::new(expr),
+                    op: tok_or,
+                    right: Box::new(right),
+                }
+            }
+        }
+    }
+    Ok((expr, pos))
 }
 
 fn parse_equality<'a>(
