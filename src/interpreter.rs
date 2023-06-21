@@ -114,6 +114,21 @@ pub fn evaluate_stmt<'a>(
             execute_block(Rc::clone(&new_env), stmts)?;
             Ok(())
         }
+        Stmt::If {
+            condition,
+            then_branch,
+            else_branch,
+        } => {
+            let condition = evaluate_expr(&mut env.borrow_mut(), condition)?;
+            match is_truthy(&condition) {
+                true => evaluate_stmt(env, &then_branch)?,
+                false => match else_branch {
+                    Some(else_branch) => evaluate_stmt(env, &else_branch)?,
+                    None => (),
+                },
+            }
+            Ok(())
+        }
     }
 }
 

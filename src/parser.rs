@@ -9,8 +9,13 @@ use crate::token_type::TokenType;
 // program        → declaration* EOF ;
 
 // statement      → exprStmt
+//                | ifStmt
 //                | printStmt
 //                | block ;
+//
+
+// ifStmt         → "if" "(" expression ")" statement
+//                ( "else" statement )? ;
 
 // block          → "{" declaration* "}" ;
 
@@ -157,9 +162,41 @@ fn parse_statement<'a>(
     pos: usize,
 ) -> Result<(Stmt<'a>, usize), ParseError> {
     match tokens[pos].token_type {
+        TokenType::If => parse_if_statment(tokens, pos + 1),
         TokenType::Print => parse_print_statement(tokens, pos + 1),
         TokenType::LeftBrace => parse_block(tokens, pos + 1),
         _ => parse_expression_statement(tokens, pos),
+    }
+}
+
+fn parse_if_statment<'a>(
+    tokens: &'a Vec<Token<'a>>,
+    pos: usize,
+) -> Result<(Stmt<'a>, usize), ParseError<'a>> {
+    let (_, pos) = consume(tokens, pos, &TokenType::LeftParen)?;
+    let (condition, pos) = parse_expression(tokens, pos)?;
+    let (_, pos) = consume(tokens, pos, &TokenType::RightParen)?;
+    let (then_branch, pos) = parse_statement(tokens, pos)?;
+    match matchh(tokens, pos, vec![TokenType::Else]) {
+        Some((_, pos)) => {
+            let (else_branch, pos) = parse_statement(tokens, pos)?;
+            Ok((
+                Stmt::If {
+                    condition,
+                    then_branch: Box::new(then_branch),
+                    else_branch: Some(Box::new(else_branch)),
+                },
+                pos,
+            ))
+        }
+        None => Ok((
+            Stmt::If {
+                condition,
+                then_branch: Box::new(then_branch),
+                else_branch: None,
+            },
+            pos,
+        )),
     }
 }
 
