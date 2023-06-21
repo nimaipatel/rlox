@@ -1,3 +1,4 @@
+use std::cell::{Ref, RefCell};
 use std::env;
 use std::rc::Rc;
 use std::{collections::HashMap, hash::Hash};
@@ -6,11 +7,11 @@ use crate::{interpreter::LoxType, interpreter::RunTimeError, token::Token, token
 
 pub struct Environment {
     pub map: HashMap<String, Rc<LoxType>>,
-    pub enclosing: Option<Box<Environment>>,
+    pub enclosing: Option<Rc<RefCell<Environment>>>,
 }
 
 impl Environment {
-    pub fn new(enclosing: Option<Box<Environment>>) -> Self {
+    pub fn new(enclosing: Option<Rc<RefCell<Environment>>>) -> Self {
         Self {
             map: HashMap::new(),
             enclosing,
@@ -26,7 +27,7 @@ impl Environment {
             TokenType::Identifier => match self.map.get(name.lexeme) {
                 Some(lox_val) => Ok(Rc::clone(lox_val)),
                 None => match &self.enclosing {
-                    Some(enclosing) => enclosing.get(name),
+                    Some(enclosing) => enclosing.borrow_mut().get(name),
                     None => Err(RunTimeError::UndefinedVariable(name)),
                 },
             },
@@ -44,7 +45,7 @@ impl Environment {
             Ok(LoxType::Nil.into())
         } else {
             match &mut self.enclosing {
-                Some(enclosing) => enclosing.assign(name, value),
+                Some(enclosing) => enclosing.borrow_mut().assign(name, value),
                 None => Err(RunTimeError::UndefinedVariable(name)),
             }
         }

@@ -7,11 +7,13 @@ mod stmt;
 mod token;
 mod token_type;
 
+use std::cell::RefCell;
 use std::env;
 use std::error::Error;
 use std::fs::File;
 use std::io::{self, BufRead, Read, Write};
 use std::process;
+use std::rc::Rc;
 
 use environment::Environment;
 use parser::parse;
@@ -31,6 +33,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
 fn run_prompt() -> io::Result<()> {
     let mut env = Environment::new(None);
+    let env = Rc::new(RefCell::new(env));
     let stdin = io::stdin();
     loop {
         print!("> ");
@@ -40,7 +43,7 @@ fn run_prompt() -> io::Result<()> {
         if line.is_empty() {
             break;
         } else {
-            run(&mut env, &line);
+            run(Rc::clone(&env), &line);
             // unsafe { HAD_ERROR = false };
         }
     }
@@ -53,23 +56,24 @@ fn run_file(args: &str) -> io::Result<()> {
     let mut contents = String::new();
     file.read_to_string(&mut contents)?;
     let mut env = Environment::new(None);
-    run(&mut env, &contents);
+    let env = Rc::new(RefCell::new(env));
+    run(env, &contents);
     Ok(())
 }
 
-fn run(env: &mut Environment, source: &str) {
+fn run(env: Rc<RefCell<Environment>>, source: &str) {
     match scanner::scan(source) {
         Ok(tokens) => {
             let (stmts, errs) = parse(&tokens);
-            dbg!(&stmts, &errs);
-            // if errs.is_empty() {
-            //     match interpreter::interpret(env, &stmts) {
-            //         Ok(_) => (),
-            //         Err(e) => println!("Runtime error: {}", e),
-            //     }
-            // } else {
-            //     errs.iter().for_each(|e| println!("{}", e));
-            // }
+            // dbg!(&stmts, &errs);
+            if errs.is_empty() {
+                match interpreter::interpret(env, &stmts) {
+                    Ok(_) => (),
+                    Err(e) => println!("Runtime error: {}", e),
+                }
+            } else {
+                errs.iter().for_each(|e| println!("{}", e));
+            }
         }
         Err(e) => println!("Lexing error: {}", e),
     }

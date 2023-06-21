@@ -1,4 +1,4 @@
-use std::fmt::format;
+use std::cell::RefCell;
 use std::rc::Rc;
 use std::{error::Error, fmt::Display};
 
@@ -67,11 +67,11 @@ impl<'a> Display for RunTimeError<'a> {
 }
 
 pub fn interpret<'a>(
-    env: &mut Environment,
+    env: Rc<RefCell<Environment>>,
     stmts: &'a Vec<Stmt<'a>>,
 ) -> Result<(), RunTimeError<'a>> {
     for stmt in stmts.iter() {
-        evaluate_stmt(env, stmt)?;
+        evaluate_stmt(Rc::clone(&env), stmt)?;
     }
     Ok(())
 }
@@ -84,28 +84,33 @@ fn is_truthy<'a>(lox_type: &'a LoxType) -> bool {
     }
 }
 
-pub fn evaluate_stmt<'a>(env: &mut Environment, stmt: &'a Stmt) -> Result<(), RunTimeError<'a>> {
+pub fn evaluate_stmt<'a>(env: Rc<RefCell<Environment>>, stmt: &'a Stmt) -> Result<(), RunTimeError<'a>> {
     match stmt {
         Stmt::Print(expr) => {
-            let value = evaluate_expr(env, expr)?;
+            let value = evaluate_expr(&mut env.borrow_mut(), expr)?;
             println!("{}", value.stringify());
             Ok(())
         }
         Stmt::Expression(expr) => {
-            evaluate_expr(env, expr)?;
+            evaluate_expr(&mut env.borrow_mut(), expr)?;
             Ok(())
         }
         Stmt::Var(name, Some(initializer)) => {
-            let value = evaluate_expr(env, initializer)?;
-            env.define(name.lexeme.into(), value);
+            let value = evaluate_expr(&mut env.borrow_mut(), initializer)?;
+            env.borrow_mut().define(name.lexeme.into(), value);
             Ok(())
         }
         Stmt::Var(name, None) => {
-            env.define(name.lexeme.into(), Rc::new(LoxType::Nil));
+            env.borrow_mut().define(name.lexeme.into(), Rc::new(LoxType::Nil));
             Ok(())
         }
         Stmt::Block(stmts) => {
-            todo!();
+            let new_env = Environment::new(Some(Rc::clone(&env)));
+            let new_env = Rc::new(RefCell::new(new_env));
+            for stmt in stmts.iter() {
+                evaluate_stmt(Rc::clone(&new_env), stmt)?;
+            }
+            Ok(())
         }
     }
 }
