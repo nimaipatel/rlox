@@ -1,3 +1,4 @@
+use std::borrow::Borrow;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::{error::Error, fmt::Display};
@@ -126,6 +127,12 @@ pub fn evaluate_stmt<'a>(
                     Some(else_branch) => evaluate_stmt(env, &else_branch)?,
                     None => (),
                 },
+            }
+            Ok(())
+        }
+        Stmt::While { condition, body } => {
+            while is_truthy(evaluate_expr(&mut env.borrow_mut(), condition)?.borrow()) {
+                evaluate_stmt(Rc::clone(&env), &body)?;
             }
             Ok(())
         }

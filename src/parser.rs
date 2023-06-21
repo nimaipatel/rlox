@@ -11,8 +11,10 @@ use crate::token_type::TokenType;
 // statement      → exprStmt
 //                | ifStmt
 //                | printStmt
+//                | whileStmt
 //                | block ;
-//
+
+// whileStmt      → "while" "(" expression ")" statement ;
 
 // ifStmt         → "if" "(" expression ")" statement
 //                ( "else" statement )? ;
@@ -169,9 +171,26 @@ fn parse_statement<'a>(
     match tokens[pos].token_type {
         TokenType::If => parse_if_statment(tokens, pos + 1),
         TokenType::Print => parse_print_statement(tokens, pos + 1),
+        TokenType::While => parse_while_statement(tokens, pos + 1),
         TokenType::LeftBrace => parse_block(tokens, pos + 1),
         _ => parse_expression_statement(tokens, pos),
     }
+}
+fn parse_while_statement<'a>(
+    tokens: &'a Vec<Token<'a>>,
+    pos: usize,
+) -> Result<(Stmt<'a>, usize), ParseError<'a>> {
+    let (_, pos) = consume(tokens, pos, &TokenType::LeftParen)?;
+    let (condition, pos) = parse_expression(tokens, pos)?;
+    let (_, pos) = consume(tokens, pos, &TokenType::RightParen)?;
+    let (body, pos) = parse_statement(tokens, pos)?;
+    Ok((
+        Stmt::While {
+            condition,
+            body: Box::new(body),
+        },
+        pos,
+    ))
 }
 
 fn parse_if_statment<'a>(
@@ -330,8 +349,7 @@ fn parse_and<'a>(
     tokens: &'a Vec<Token<'a>>,
     pos: usize,
 ) -> Result<(Expr<'a>, usize), ParseError<'a>> {
-    let (mut expr, mut pos) = parse_equality(
-        tokens, pos)?;
+    let (mut expr, mut pos) = parse_equality(tokens, pos)?;
     loop {
         match matchh(tokens, pos, vec![TokenType::And]) {
             None => break,
