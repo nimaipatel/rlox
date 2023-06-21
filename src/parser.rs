@@ -9,10 +9,15 @@ use crate::token_type::TokenType;
 // program        → declaration* EOF ;
 
 // statement      → exprStmt
+//                | forStmt
 //                | ifStmt
 //                | printStmt
 //                | whileStmt
 //                | block ;
+
+// forStmt        → "for" "(" ( varDecl | exprStmt | ";" )
+//                  expression? ";"
+//                  expression? ")" statement ;
 
 // whileStmt      → "while" "(" expression ")" statement ;
 
@@ -169,6 +174,7 @@ fn parse_statement<'a>(
     pos: usize,
 ) -> Result<(Stmt<'a>, usize), ParseError> {
     match tokens[pos].token_type {
+        TokenType::For => parse_for_statement(tokens, pos + 1),
         TokenType::If => parse_if_statment(tokens, pos + 1),
         TokenType::Print => parse_print_statement(tokens, pos + 1),
         TokenType::While => parse_while_statement(tokens, pos + 1),
@@ -176,6 +182,83 @@ fn parse_statement<'a>(
         _ => parse_expression_statement(tokens, pos),
     }
 }
+
+fn parse_for_statement<'a>(
+    tokens: &'a Vec<Token<'a>>,
+    pos: usize,
+) -> Result<(Stmt<'a>, usize), ParseError<'a>> {
+    let (_, mut pos) = consume(tokens, pos, &TokenType::LeftParen)?;
+
+    let initializer: Option<Stmt> = {
+        match &tokens[pos].token_type {
+            TokenType::Semicolon => None,
+            TokenType::Var => {
+                let (var_declaration, new_pos) = parse_var_declaration(tokens, pos + 1)?;
+                pos = new_pos;
+                Some(var_declaration)
+            }
+            _ => {
+                let (expression_statement, new_pos) = parse_expression_statement(tokens, pos)?;
+                pos = new_pos;
+                Some(expression_statement)
+            }
+        }
+    };
+
+    let condition: Option<Expr> = {
+        match &tokens[pos].token_type {
+            TokenType::Semicolon => None,
+            _ => {
+                let (condition, new_pos) = parse_expression(tokens, pos)?;
+                pos = new_pos;
+                Some(condition)
+            }
+        }
+    };
+    let (_, mut pos) = consume(tokens, pos, &TokenType::Semicolon)?;
+
+    let increment: Option<Expr> = {
+        match &tokens[pos].token_type {
+            TokenType::RightParen => None,
+            _ => {
+                let (condition, new_pos) = parse_expression(tokens, pos)?;
+                pos = new_pos;
+                Some(condition)
+            }
+        }
+    };
+    let (_, pos) = consume(tokens, pos, &TokenType::RightParen)?;
+
+    let (mut body, pos) = parse_statement(tokens, pos)?;
+
+    // we desugar the FOR loop to a WHILE loop
+
+    // add the increment statement if any to the end of the body
+    if let Some(increment) = increment {
+        body = Stmt::Block(vec![body, Stmt::Expression(increment)]);
+    }
+
+    // create while loop based on condition
+    if let Some(condition) = condition {
+        body = Stmt::While {
+            condition,
+            body: Box::new(body),
+        }
+    } else {
+        body = Stmt::While {
+            condition: Expr::BoolLiteral(true),
+            body: Box::new(body),
+        }
+    }
+
+    // add the initializer statement to the beginning
+    if let Some(initializer) = initializer {
+        body = Stmt::Block(vec![initializer, body])
+    }
+
+    Ok((body, pos))
+}
+
 fn parse_while_statement<'a>(
     tokens: &'a Vec<Token<'a>>,
     pos: usize,
