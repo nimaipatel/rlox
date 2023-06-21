@@ -12,7 +12,6 @@ use std::env;
 use std::error::Error;
 use std::fs::File;
 use std::io::{self, BufRead, Read, Write};
-use std::process;
 use std::rc::Rc;
 
 use environment::Environment;
@@ -20,19 +19,17 @@ use parser::parse;
 
 fn main() -> Result<(), Box<dyn Error>> {
     let args = env::args().collect::<Vec<_>>();
-    if args.len() > 1 {
-        println!("Usage: rlox [script]");
-        process::exit(64);
-    } else if args.len() == 2 {
-        run_file(&args[1])?;
-    } else if args.len() == 1 {
-        run_prompt()?;
+    match &args[..] {
+        [_] => run_prompt()?,
+        [_, script_name] => run_file(&script_name)?,
+        [prog_name, ..] => println!("Usage: {} [script]", prog_name),
+        [] => unreachable!(),
     }
     Ok(())
 }
 
 fn run_prompt() -> io::Result<()> {
-    let mut env = Environment::new(None);
+    let env = Environment::new(None);
     let env = Rc::new(RefCell::new(env));
     let stdin = io::stdin();
     loop {
@@ -55,7 +52,7 @@ fn run_file(args: &str) -> io::Result<()> {
     let mut file = File::open(args)?;
     let mut contents = String::new();
     file.read_to_string(&mut contents)?;
-    let mut env = Environment::new(None);
+    let env = Environment::new(None);
     let env = Rc::new(RefCell::new(env));
     run(env, &contents);
     Ok(())
