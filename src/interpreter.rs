@@ -84,7 +84,10 @@ fn is_truthy<'a>(lox_type: &'a LoxType) -> bool {
     }
 }
 
-pub fn evaluate_stmt<'a>(env: Rc<RefCell<Environment>>, stmt: &'a Stmt) -> Result<(), RunTimeError<'a>> {
+pub fn evaluate_stmt<'a>(
+    env: Rc<RefCell<Environment>>,
+    stmt: &'a Stmt,
+) -> Result<(), RunTimeError<'a>> {
     match stmt {
         Stmt::Print(expr) => {
             let value = evaluate_expr(&mut env.borrow_mut(), expr)?;
@@ -101,18 +104,27 @@ pub fn evaluate_stmt<'a>(env: Rc<RefCell<Environment>>, stmt: &'a Stmt) -> Resul
             Ok(())
         }
         Stmt::Var(name, None) => {
-            env.borrow_mut().define(name.lexeme.into(), Rc::new(LoxType::Nil));
+            env.borrow_mut()
+                .define(name.lexeme.into(), Rc::new(LoxType::Nil));
             Ok(())
         }
         Stmt::Block(stmts) => {
             let new_env = Environment::new(Some(Rc::clone(&env)));
             let new_env = Rc::new(RefCell::new(new_env));
-            for stmt in stmts.iter() {
-                evaluate_stmt(Rc::clone(&new_env), stmt)?;
-            }
+            execute_block(Rc::clone(&new_env), stmts)?;
             Ok(())
         }
     }
+}
+
+fn execute_block<'a>(
+    env: Rc<RefCell<Environment>>,
+    stmts: &'a [Stmt<'a>],
+) -> Result<(), RunTimeError<'a>> {
+    for stmt in stmts.iter() {
+        evaluate_stmt(Rc::clone(&env), stmt)?;
+    }
+    Ok(())
 }
 
 pub fn evaluate_expr<'a>(
