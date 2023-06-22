@@ -9,7 +9,7 @@ pub enum Expr<'a> {
     Logical {
         left: Box<Expr<'a>>,
         op: &'a Token<'a>,
-        right: Box<Expr<'a>>
+        right: Box<Expr<'a>>,
     },
     Unary {
         op: &'a Token<'a>,
@@ -25,5 +25,12 @@ pub enum Expr<'a> {
     Assign {
         name: &'a Token<'a>,
         value: Box<Expr<'a>>,
+    },
+    Call {
+        callee: Box<Expr<'a>>,
+        // we also store closing parentheses of function calls to
+        // report runtime error caused by function calls
+        paren: &'a Token<'a>,
+        arguments: Vec<Expr<'a>>,
     },
 }

@@ -8,11 +8,18 @@ use crate::{
 };
 
 #[derive(Debug, PartialEq)]
+pub struct Callable {
+    pub call: fn(env: Rc<RefCell<Environment>>, arguments: Vec<Rc<LoxType>>) -> Rc<LoxType>,
+    pub arity: fn() -> usize,
+}
+
+#[derive(Debug, PartialEq)]
 pub enum LoxType {
     Nil,
     Boolean(bool),
     Number(f64),
     String(String),
+    Function(Callable),
 }
 
 impl LoxType {
@@ -25,12 +32,21 @@ impl LoxType {
             },
             LoxType::Number(n) => format!("{}", n),
             LoxType::String(s) => s.clone(),
+            LoxType::Function(_) => todo!(),
         }
     }
 }
 
 #[derive(Debug)]
 pub enum RunTimeError<'a> {
+    WrongNumArgs {
+        paren: &'a Token<'a>,
+        expected: usize,
+        actual: usize,
+    },
+    NotCallable {
+        paren: &'a Token<'a>,
+    },
     OperandShouldBeNumber {
         operator: &'a Token<'a>,
         operand: Rc<LoxType>,
@@ -62,7 +78,25 @@ impl<'a> Display for RunTimeError<'a> {
                 "Operands for the binary operator {:?} on line {} must be numbers but found {:?} and {:?}",
                 operator, operator.line, left, right
             ),
-            RunTimeError::UndefinedVariable(name) => write!(f, "Found undefined variable {} on line {}", name.lexeme, name.line)
+            RunTimeError::UndefinedVariable(name) =>
+                write!(
+                    f,
+                    "Found undefined variable {} on line {}",
+                    name.lexeme, name.line
+            ),
+            RunTimeError::NotCallable { paren } =>
+                write!(
+                    f,
+                    "Can't call {} on line {} as it is not callable",
+                    paren.lexeme, paren.line
+            ),
+            RunTimeError::WrongNumArgs { paren, expected, actual } =>
+                write!(
+                    f,
+                    "Expected {} arguments but got {} for {} on line {}", 
+                    expected, actual, paren.lexeme, paren.line
+            )
+
         }
     }
 }
@@ -91,16 +125,16 @@ pub fn evaluate_stmt<'a>(
 ) -> Result<(), RunTimeError<'a>> {
     match stmt {
         Stmt::Print(expr) => {
-            let value = evaluate_expr(&mut env.borrow_mut(), expr)?;
+            let value = evaluate_expr(Rc::clone(&env), expr)?;
             println!("{}", value.stringify());
             Ok(())
         }
         Stmt::Expression(expr) => {
-            evaluate_expr(&mut env.borrow_mut(), expr)?;
+            evaluate_expr(Rc::clone(&env), expr)?;
             Ok(())
         }
         Stmt::Var(name, Some(initializer)) => {
-            let value = evaluate_expr(&mut env.borrow_mut(), initializer)?;
+            let value = evaluate_expr(Rc::clone(&env), initializer)?;
             env.borrow_mut().define(name.lexeme.into(), value);
             Ok(())
         }
@@ -120,7 +154,7 @@ pub fn evaluate_stmt<'a>(
             then_branch,
             else_branch,
         } => {
-            let condition = evaluate_expr(&mut env.borrow_mut(), condition)?;
+            let condition = evaluate_expr(Rc::clone(&env), condition)?;
             match is_truthy(&condition) {
                 true => evaluate_stmt(env, &then_branch)?,
                 false => match else_branch {
@@ -131,7 +165,7 @@ pub fn evaluate_stmt<'a>(
             Ok(())
         }
         Stmt::While { condition, body } => {
-            while is_truthy(evaluate_expr(&mut env.borrow_mut(), condition)?.borrow()) {
+            while is_truthy(evaluate_expr(Rc::clone(&env), condition)?.borrow()) {
                 evaluate_stmt(Rc::clone(&env), &body)?;
             }
             Ok(())
@@ -150,7 +184,7 @@ fn execute_block<'a>(
 }
 
 pub fn evaluate_expr<'a>(
-    env: &mut Environment,
+    env: Rc<RefCell<Environment>>,
     expr: &'a Expr,
 ) -> Result<Rc<LoxType>, RunTimeError<'a>> {
     match expr {
@@ -175,7 +209,7 @@ pub fn evaluate_expr<'a>(
         }
 
         Expr::Binary { left, op, right } => {
-            let left = evaluate_expr(env, left)?;
+            let left = evaluate_expr(Rc::clone(&env), left)?;
             let right = evaluate_expr(env, right)?;
             match &op.token_type {
                 TokenType::Minus => match (left.as_ref(), right.as_ref()) {
@@ -271,19 +305,47 @@ pub fn evaluate_expr<'a>(
             }
         }
         Expr::Variable(name) => {
-            let value = env.get(name)?;
+            let value = env.borrow_mut().get(name)?;
             Ok(value)
         }
         Expr::Assign { name, value } => {
-            let value = evaluate_expr(env, value)?;
-            env.assign(name, value)
+            let value = evaluate_expr(Rc::clone(&env), value)?;
+            env.borrow_mut().assign(name, value)
         }
         Expr::Logical { left, op, right } => {
-            let left = evaluate_expr(env, left)?;
+            let left = evaluate_expr(Rc::clone(&env), left)?;
             match (is_truthy(&left), &op.token_type) {
                 (true, TokenType::Or) | (false, TokenType::And) => Ok(left),
                 (false, TokenType::Or) | (true, TokenType::And) => evaluate_expr(env, &right),
                 _ => unreachable!(),
+            }
+        }
+        call_expr @ Expr::Call {
+            callee,
+            paren,
+            arguments,
+        } => {
+            let callee = evaluate_expr(Rc::clone(&env), callee)?;
+            let arguments: Result<Vec<_>, RunTimeError> = arguments
+                .into_iter()
+                .map(|a| evaluate_expr(Rc::clone(&env), a))
+                .collect();
+            let arguments = arguments?;
+            match callee.as_ref() {
+                LoxType::Function(callable) => {
+                    let expected = (callable.arity)();
+                    let actual = arguments.len();
+                    if expected == actual {
+                        Ok((callable.call)(env, arguments))
+                    } else {
+                        Err(RunTimeError::WrongNumArgs {
+                            paren,
+                            expected,
+                            actual,
+                        })
+                    }
+                }
+                _ => Err(RunTimeError::NotCallable { paren }),
             }
         }
     }

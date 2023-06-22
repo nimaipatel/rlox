@@ -41,8 +41,10 @@ use crate::token_type::TokenType;
 // comparison     → term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
 // term           → factor ( ( "-" | "+" ) factor )* ;
 // factor         → unary ( ( "/" | "*" ) unary )* ;
-// unary          → ( "!" | "-" ) unary
+// unary          → ( "!" | "-" ) unary | call ;
+// call           → primary ( "(" arguments? ")" )* ;
 //                | primary ;
+// arguments      → expression ( "," expression )* ;
 // primary        → "true" | "false" | "nil"
 //                | NUMBER | STRING
 //                | "(" expression ")"
@@ -560,8 +562,58 @@ fn parse_unary<'a>(
                 pos,
             ))
         }
-        _ => parse_primary(tokens, pos),
+        _ => parse_call(tokens, pos),
     }
+}
+
+fn parse_call<'a>(tokens: &'a Vec<Token<'a>>, pos: usize) -> Result<(Expr<'a>, usize), ParseError> {
+    let (mut expr, mut pos) = parse_primary(tokens, pos)?;
+    loop {
+        match &tokens[pos].token_type {
+            TokenType::LeftParen => {
+                let (new_expr, new_pos) = parse_call_finish(tokens, pos + 1, expr)?;
+                expr = new_expr;
+                pos = new_pos;
+            }
+            _ => break,
+        }
+    }
+    Ok((expr, pos))
+}
+
+fn parse_call_finish<'a>(
+    tokens: &'a Vec<Token<'a>>,
+    pos: usize,
+    callee: Expr<'a>,
+) -> Result<(Expr<'a>, usize), ParseError<'a>> {
+    let mut pos = pos;
+    let mut arguments = Vec::new();
+    if tokens[pos].token_type != TokenType::RightParen {
+        // dbg!(&tokens[pos].token_type);
+        let (argument, new_pos) = parse_expression(tokens, pos)?;
+        arguments.push(argument);
+        pos = new_pos;
+        loop {
+            if tokens[pos].token_type == TokenType::Comma {
+                let (argument, new_pos) = parse_expression(tokens, pos + 1)?;
+                arguments.push(argument);
+                pos = new_pos;
+            } else {
+                break;
+            }
+        }
+    }
+
+    let (paren, pos) = consume(tokens, pos, &TokenType::RightParen)?;
+
+    Ok((
+        Expr::Call {
+            callee: Box::new(callee),
+            paren,
+            arguments,
+        },
+        pos,
+    ))
 }
 
 fn parse_primary<'a>(

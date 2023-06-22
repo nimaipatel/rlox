@@ -1,8 +1,14 @@
-use std::cell::{ RefCell};
+use std::cell::RefCell;
+use std::collections::HashMap;
 use std::rc::Rc;
-use std::{collections::HashMap};
+use std::time::{SystemTime, UNIX_EPOCH};
 
-use crate::{interpreter::LoxType, interpreter::RunTimeError, token::Token, token_type::TokenType};
+use crate::{
+    interpreter::LoxType,
+    interpreter::{Callable, RunTimeError},
+    token::Token,
+    token_type::TokenType,
+};
 
 pub struct Environment {
     pub map: HashMap<String, Rc<LoxType>>,
@@ -11,9 +17,25 @@ pub struct Environment {
 
 impl Environment {
     pub fn new(enclosing: Option<Rc<RefCell<Environment>>>) -> Self {
-        Self {
-            map: HashMap::new(),
-            enclosing,
+        if let Some(enclosing) = enclosing {
+            Self {
+                map: HashMap::new(),
+                enclosing: Some(enclosing),
+            }
+        } else {
+            let mut globals = Self {
+                map: HashMap::new(),
+                enclosing: None,
+            };
+            let clock = LoxType::Function(Callable {
+                call: |env, _| {
+                    let time = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+                    LoxType::Number(time as f64).into()
+                },
+                arity: || 0,
+            });
+            globals.define("clock".into(), clock.into());
+            globals
         }
     }
 

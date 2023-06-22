@@ -18,7 +18,11 @@ impl fmt::Display for ScanError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             ScanError::UnexpectedChar(c, line) => {
-                write!(f, "Found unexpected character {} while scanning on line {}", c, line)
+                write!(
+                    f,
+                    "Found unexpected character {} while scanning on line {}",
+                    c, line
+                )
             }
         }
     }
