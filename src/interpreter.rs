@@ -1,5 +1,8 @@
 use std::borrow::Borrow;
 use std::cell::RefCell;
+
+use std::fmt::Debug;
+
 use std::rc::Rc;
 use std::{error::Error, fmt::Display};
 
@@ -7,32 +10,114 @@ use crate::{
     environment::Environment, expr::Expr, stmt::Stmt, token::Token, token_type::TokenType,
 };
 
-#[derive(Debug, PartialEq)]
-pub struct Callable {
-    pub call: fn(env: Rc<RefCell<Environment>>, arguments: Vec<Rc<LoxType>>) -> Rc<LoxType>,
-    pub arity: fn() -> usize,
+struct Callable<'a> {
+    call: fn(env: Rc<RefCell<Environment>>, arguments: Vec<Rc<LoxType>>) -> Rc<LoxType>,
+    arity: fn() -> usize,
+    name: String,
+    paren: Token<'a>,
+}
+
+impl<'a> Display for Callable<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.name)
+    }
 }
 
 #[derive(Debug, PartialEq)]
+pub enum FunctionType {
+    UserDefined(Option<String>),
+    NativeFunction(String),
+}
+
 pub enum LoxType {
     Nil,
     Boolean(bool),
     Number(f64),
     String(String),
-    Function(Callable),
+    Function {
+        function_type: FunctionType,
+        // call: fn(env: Rc<RefCell<Environment>>, arguments: Vec<Rc<LoxType>>) -> Rc<LoxType>,
+        call: Box<dyn Fn(Rc<RefCell<Environment>>, Vec<Rc<LoxType>>) -> Rc<LoxType>>,
+        arity: usize,
+    },
 }
 
-impl LoxType {
-    fn stringify(&self) -> String {
+impl Debug for LoxType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            LoxType::Nil => "Nil".into(),
+            Self::Nil => write!(f, "Nil"),
+            Self::Boolean(arg0) => f.debug_tuple("Boolean").field(arg0).finish(),
+            Self::Number(arg0) => f.debug_tuple("Number").field(arg0).finish(),
+            Self::String(arg0) => f.debug_tuple("String").field(arg0).finish(),
+            Self::Function {
+                function_type,
+                call,
+                arity,
+            } => f
+                .debug_struct("Function")
+                .field("function_type", function_type)
+                // .field("call", call)
+                .field("arity", arity)
+                .finish(),
+        }
+    }
+}
+
+impl PartialEq for LoxType {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Boolean(l0), Self::Boolean(r0)) => l0 == r0,
+            (Self::Number(l0), Self::Number(r0)) => l0 == r0,
+            (Self::String(l0), Self::String(r0)) => l0 == r0,
+            // (
+            //     Self::Function {
+            //         function_type: l_function_type,
+            //         call: l_call,
+            //         arity: l_arity,
+            //     },
+            //     Self::Function {
+            //         function_type: r_function_type,
+            //         call: r_call,
+            //         arity: r_arity,
+            //     },
+            // ) => l_function_type == r_function_type && l_call == r_call && l_arity == r_arity,
+            _ => core::mem::discriminant(self) == core::mem::discriminant(other),
+        }
+    }
+}
+
+// impl<'a> TryInto<Callable<'a>> for LoxType {
+//     type Error = RunTimeError<'a>;
+
+//     fn try_into(self) -> Result<Callable<'a>, Self::Error> {
+//         match self {
+//             LoxType::Function { function_type, call, arity } => todo!(),
+//             _ => Err(RunTimeError::NotCallable { paren: self. })
+//         }
+//     }
+// }
+
+impl Display for LoxType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            LoxType::Nil => write!(f, "nil"),
             LoxType::Boolean(b) => match b {
-                true => "true".into(),
-                false => "false".into(),
+                true => write!(f, "true"),
+                false => write!(f, "false"),
             },
-            LoxType::Number(n) => format!("{}", n),
-            LoxType::String(s) => s.clone(),
-            LoxType::Function(_) => todo!(),
+            LoxType::Number(n) => write!(f, "{}", n),
+            LoxType::String(s) => write!(f, "{}", s),
+            LoxType::Function {
+                function_type,
+                call,
+                arity,
+            } => match function_type {
+                FunctionType::UserDefined(Some(name)) => {
+                    write!(f, "<User-defined Function `{}`>", name)
+                }
+                FunctionType::UserDefined(None) => write!(f, "<User-defined Function>"),
+                FunctionType::NativeFunction(name) => write!(f, "<Native function `{}`>", name),
+            },
         }
     }
 }
@@ -126,7 +211,7 @@ pub fn evaluate_stmt<'a>(
     match stmt {
         Stmt::Print(expr) => {
             let value = evaluate_expr(Rc::clone(&env), expr)?;
-            println!("{}", value.stringify());
+            println!("{}", value);
             Ok(())
         }
         Stmt::Expression(expr) => {
@@ -168,6 +253,24 @@ pub fn evaluate_stmt<'a>(
             while is_truthy(evaluate_expr(Rc::clone(&env), condition)?.borrow()) {
                 evaluate_stmt(Rc::clone(&env), &body)?;
             }
+            Ok(())
+        }
+        Stmt::Function { name, params, body } => {
+            let arity = params.len();
+            let params: Vec<_> = params.iter().map(|e| e.lexeme.to_string()).collect();
+            let lox_function = LoxType::Function {
+                function_type: FunctionType::UserDefined(name.lexeme.to_string().into()),
+                call: Box::new(move |env, args| {
+                    let env = Rc::new(RefCell::new(Environment::new(Some(env))));
+                    args.iter();
+                    params.iter();
+                    evaluate_stmt(Rc::clone(&env), todo!());
+                    Rc::new(LoxType::Nil)
+                }),
+                arity,
+            };
+            env.borrow_mut()
+                .define(name.lexeme.to_string(), Rc::new(lox_function));
             Ok(())
         }
     }
@@ -320,7 +423,7 @@ pub fn evaluate_expr<'a>(
                 _ => unreachable!(),
             }
         }
-        call_expr @ Expr::Call {
+        Expr::Call {
             callee,
             paren,
             arguments,
@@ -332,15 +435,18 @@ pub fn evaluate_expr<'a>(
                 .collect();
             let arguments = arguments?;
             match callee.as_ref() {
-                LoxType::Function(callable) => {
-                    let expected = (callable.arity)();
+                LoxType::Function {
+                    function_type: _,
+                    call,
+                    arity,
+                } => {
                     let actual = arguments.len();
-                    if expected == actual {
-                        Ok((callable.call)(env, arguments))
+                    if *arity == actual {
+                        Ok((call)(env, arguments))
                     } else {
                         Err(RunTimeError::WrongNumArgs {
                             paren,
-                            expected,
+                            expected: *arity,
                             actual,
                         })
                     }

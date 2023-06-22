@@ -4,9 +4,7 @@ use std::rc::Rc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::{
-    interpreter::LoxType,
-    interpreter::{Callable, RunTimeError},
-    token::Token,
+    interpreter::FunctionType, interpreter::LoxType, interpreter::RunTimeError, token::Token,
     token_type::TokenType,
 };
 
@@ -27,13 +25,18 @@ impl Environment {
                 map: HashMap::new(),
                 enclosing: None,
             };
-            let clock = LoxType::Function(Callable {
-                call: |env, _| {
-                    let time = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
-                    LoxType::Number(time as f64).into()
-                },
-                arity: || 0,
-            });
+            let clock = LoxType::Function {
+                call: todo!(),
+                // call: |_, _| {
+                //     let time = SystemTime::now()
+                //         .duration_since(UNIX_EPOCH)
+                //         .unwrap()
+                //         .as_secs();
+                //     LoxType::Number(time as f64).into()
+                // },
+                arity: 0,
+                function_type: FunctionType::NativeFunction("clock".into()),
+            };
             globals.define("clock".into(), clock.into());
             globals
         }

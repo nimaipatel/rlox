@@ -15,4 +15,9 @@ pub enum Stmt<'a> {
         condition: Expr<'a>,
         body: Box<Stmt<'a>>,
     },
+    Function {
+        name: &'a Token<'a>,
+        params: Vec<&'a Token<'a>>,
+        body: Box<Stmt<'a>>,
+    },
 }
