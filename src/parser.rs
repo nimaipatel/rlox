@@ -26,6 +26,14 @@ use crate::token_type::TokenType;
 
 // block          → "{" declaration* "}" ;
 
+// declaration    → funDecl
+//                | varDecl
+//                | statement ;
+
+// funDecl        → "fun" function ;
+// function       → IDENTIFIER "(" parameters? ")" block ;
+// parameters     → IDENTIFIER ( "," IDENTIFIER )* ;
+
 // varDecl        → "var" IDENTIFIER ( "=" expression )? ";" ;
 
 // exprStmt       → expression ";" ;
@@ -147,9 +155,46 @@ fn parse_declaration<'a>(
     pos: usize,
 ) -> Result<(Stmt<'a>, usize), ParseError> {
     match tokens[pos].token_type {
+        TokenType::Fun => parse_function(tokens, pos + 1),
         TokenType::Var => parse_var_declaration(tokens, pos + 1),
         _ => parse_statement(tokens, pos),
     }
+}
+
+fn parse_function<'a>(
+    tokens: &'a Vec<Token<'a>>,
+    pos: usize,
+) -> Result<(Stmt<'a>, usize), ParseError> {
+    let (name, pos) = consume(tokens, pos, &TokenType::Identifier)?;
+    let (_, mut pos) = consume(tokens, pos, &TokenType::LeftParen)?;
+
+    let mut params = Vec::new();
+    if tokens[pos].token_type != TokenType::RightParen {
+        // dbg!(&tokens[pos].token_type);
+        loop {
+            let (param, new_pos) = consume(tokens, pos, &TokenType::Identifier)?;
+            pos = new_pos;
+            params.push(param);
+            if tokens[pos].token_type == TokenType::Comma {
+                pos += 1;
+            } else {
+                break;
+            }
+        }
+    }
+    let (_, pos) = consume(tokens, pos, &TokenType::RightParen)?;
+
+    let (_, pos) = consume(tokens, pos, &TokenType::LeftBrace)?;
+    let (body, pos) = parse_block(tokens, pos)?;
+
+    Ok((
+        Stmt::Function {
+            name,
+            params,
+            body: Box::new(body),
+        },
+        pos,
+    ))
 }
 
 fn parse_var_declaration<'a>(
