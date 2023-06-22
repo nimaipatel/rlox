@@ -262,8 +262,9 @@ pub fn evaluate_stmt<'a>(
                 function_type: FunctionType::UserDefined(name.lexeme.to_string().into()),
                 call: Box::new(move |env, args| {
                     let env = Rc::new(RefCell::new(Environment::new(Some(env))));
-                    args.iter();
-                    params.iter();
+                    for (param, arg) in params.iter().zip(args.iter()) {
+                        env.borrow_mut().define(param.into(), Rc::clone(arg));
+                    }
                     evaluate_stmt(Rc::clone(&env), todo!());
                     Rc::new(LoxType::Nil)
                 }),
