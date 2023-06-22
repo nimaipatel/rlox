@@ -26,14 +26,13 @@ impl Environment {
                 enclosing: None,
             };
             let clock = LoxType::Function {
-                call: todo!(),
-                // call: |_, _| {
-                //     let time = SystemTime::now()
-                //         .duration_since(UNIX_EPOCH)
-                //         .unwrap()
-                //         .as_secs();
-                //     LoxType::Number(time as f64).into()
-                // },
+                call: Box::new(|_, _| {
+                    let time = SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .unwrap()
+                        .as_secs();
+                    LoxType::Number(time as f64).into()
+                }),
                 arity: 0,
                 function_type: FunctionType::NativeFunction("clock".into()),
             };
