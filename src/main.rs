@@ -62,7 +62,7 @@ fn run(env: Rc<RefCell<Environment>>, source: &str) {
     match scanner::scan(source) {
         Ok(tokens) => {
             let (stmts, errs) = parser::parse(&tokens);
-            dbg!(&stmts, &errs);
+            // dbg!(&stmts, &errs);
             if errs.is_empty() {
                 match interpreter::interpret(env, &stmts) {
                     Ok(_) => (),
