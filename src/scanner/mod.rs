@@ -1,11 +1,7 @@
 mod scan_error;
 mod tests;
 
-use core::fmt;
-use std::error::Error;
-
 use crate::{
-    // error,
     token::Token,
     token_type::{string_to_keyword, TokenType},
 };

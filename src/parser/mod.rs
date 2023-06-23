@@ -1,10 +1,11 @@
-use core::fmt;
-use std::error::Error;
+mod parse_error;
 
 use crate::expr::Expr;
 use crate::stmt::Stmt;
 use crate::token::Token;
 use crate::token_type::TokenType;
+
+use self::parse_error::ParseError;
 
 // program        → declaration* EOF ;
 
@@ -58,52 +59,6 @@ use crate::token_type::TokenType;
 //                | "(" expression ")"
 //                | IDENTIFIER ;
 
-// TODO: make ParseError accept the token to get line information
-#[derive(Debug, PartialEq)]
-pub enum ParseError<'a> {
-    UnexpectedEndOfInput {
-        expected: &'static str,
-    },
-    InvalidToken {
-        token: &'a Token<'a>,
-    },
-    ExpectedSomething {
-        actual: &'a Token<'a>,
-        expected: &'a TokenType<'a>,
-    },
-    InvalidAssignment {
-        equals: &'a Token<'a>,
-    },
-}
-
-impl<'a> Error for ParseError<'a> {}
-
-impl<'a> fmt::Display for ParseError<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            ParseError::UnexpectedEndOfInput { expected } => {
-                write! {f, "Unexpected end of input, expected {} token", expected}
-            }
-            ParseError::InvalidAssignment { equals } => {
-                write!(f, "Invalid assignment target on line {}", equals.line)
-            }
-            ParseError::InvalidToken { token } => {
-                write!(
-                    f,
-                    "Found invalid token {} on line {}",
-                    token.lexeme, token.line
-                )
-            }
-            ParseError::ExpectedSomething { actual, expected } => {
-                write!(
-                    f,
-                    "Found token {} but expected {:?} on line {}",
-                    actual.lexeme, expected, actual.line
-                )
-            }
-        }
-    }
-}
 
 pub fn parse<'a>(tokens: &'a Vec<Token<'a>>) -> (Vec<Stmt<'a>>, Vec<ParseError>) {
     let mut statements = Vec::new();
