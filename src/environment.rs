@@ -3,10 +3,11 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use crate::{
-    interpreter::FunctionType, interpreter::LoxType, interpreter::RunTimeError, token::Token,
-    token_type::TokenType,
-};
+use crate::interpreter::RunTimeError;
+use crate::lox_type::{LoxType, FunctionType};
+use crate::token::Token;
+use crate::token_type::TokenType;
+
 
 pub struct Environment {
     pub map: HashMap<String, Rc<LoxType>>,

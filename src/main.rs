@@ -6,6 +6,7 @@ mod scanner;
 mod stmt;
 mod token;
 mod token_type;
+mod lox_type;
 
 use std::cell::RefCell;
 use std::env;
@@ -15,7 +16,6 @@ use std::io::{self, BufRead, Read, Write};
 use std::rc::Rc;
 
 use environment::Environment;
-use parser::parse;
 
 fn main() -> Result<(), Box<dyn Error>> {
     let args = env::args().collect::<Vec<_>>();
@@ -61,7 +61,7 @@ fn run_file(args: &str) -> io::Result<()> {
 fn run(env: Rc<RefCell<Environment>>, source: &str) {
     match scanner::scan(source) {
         Ok(tokens) => {
-            let (stmts, errs) = parse(&tokens);
+            let (stmts, errs) = parser::parse(&tokens);
             dbg!(&stmts, &errs);
             if errs.is_empty() {
                 match interpreter::interpret(env, &stmts) {
@@ -69,7 +69,7 @@ fn run(env: Rc<RefCell<Environment>>, source: &str) {
                     Err(e) => println!("Runtime error: {}", e),
                 }
             } else {
-                errs.iter().for_each(|e| println!("{}", e));
+                errs.iter().for_each(|e| println!("Parsing error: {}", e));
             }
         }
         Err(e) => println!("Lexing error: {}", e),
