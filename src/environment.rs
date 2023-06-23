@@ -3,11 +3,10 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use crate::lox_type::{LoxType, FunctionType};
+use crate::lox_type::{FunctionType, LoxType};
 use crate::runtime_error::RunTimeError;
 use crate::token::Token;
 use crate::token_type::TokenType;
-
 
 pub struct Environment {
     pub map: HashMap<String, Rc<LoxType>>,
@@ -15,6 +14,10 @@ pub struct Environment {
 }
 
 impl Environment {
+    pub fn fresh() -> Rc<RefCell<Self>> {
+        Rc::new(RefCell::new(Environment::new(None)))
+    }
+    
     pub fn new(enclosing: Option<Rc<RefCell<Environment>>>) -> Self {
         if let Some(enclosing) = enclosing {
             Self {

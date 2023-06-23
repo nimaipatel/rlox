@@ -30,8 +30,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 }
 
 fn run_prompt() -> io::Result<()> {
-    let env = Environment::new(None);
-    let env = Rc::new(RefCell::new(env));
+    let env = Environment::fresh();
     let stdin = io::stdin();
     loop {
         print!("> ");
@@ -53,8 +52,7 @@ fn run_file(args: &str) -> io::Result<()> {
     let mut file = File::open(args)?;
     let mut contents = String::new();
     file.read_to_string(&mut contents)?;
-    let env = Environment::new(None);
-    let env = Rc::new(RefCell::new(env));
+    let env = Environment::fresh();
     run(env, &contents);
     Ok(())
 }
