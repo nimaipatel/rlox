@@ -1,6 +1,7 @@
 mod environment;
 mod expr;
 mod interpreter;
+mod runtime_error;
 mod parser;
 mod scanner;
 mod stmt;

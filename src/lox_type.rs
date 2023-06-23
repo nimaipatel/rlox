@@ -31,7 +31,7 @@ impl Debug for LoxType {
             Self::String(arg0) => f.debug_tuple("String").field(arg0).finish(),
             Self::Function {
                 function_type,
-                call,
+                call: _,
                 arity,
             } => f
                 .debug_struct("Function")
@@ -78,8 +78,8 @@ impl Display for LoxType {
             LoxType::String(s) => write!(f, "{}", s),
             LoxType::Function {
                 function_type,
-                call,
-                arity,
+                call: _,
+                arity: _,
             } => match function_type {
                 FunctionType::UserDefined(Some(name)) => {
                     write!(f, "<User-defined Function `{}`>", name)

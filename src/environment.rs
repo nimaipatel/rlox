@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use crate::interpreter::RunTimeError;
 use crate::lox_type::{LoxType, FunctionType};
+use crate::runtime_error::RunTimeError;
 use crate::token::Token;
 use crate::token_type::TokenType;
 

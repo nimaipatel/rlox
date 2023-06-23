@@ -1,80 +1,11 @@
 use std::borrow::Borrow;
 use std::cell::RefCell;
-
-use std::fmt::Debug;
-
 use std::rc::Rc;
-use std::{error::Error, fmt::Display};
 
-use crate::lox_type::{LoxType, FunctionType};
-use crate::{
-    expr::Expr, stmt::Stmt, token::Token, token_type::TokenType,
-};
 use crate::environment::Environment;
-
-#[derive(Debug)]
-pub enum RunTimeError<'a> {
-    WrongNumArgs {
-        paren: &'a Token<'a>,
-        expected: usize,
-        actual: usize,
-    },
-    NotCallable {
-        paren: &'a Token<'a>,
-    },
-    OperandShouldBeNumber {
-        operator: &'a Token<'a>,
-        operand: Rc<LoxType>,
-    },
-    OperandsShouldBeNumber {
-        op: &'a Token<'a>,
-        left: Rc<LoxType>,
-        right: Rc<LoxType>,
-    },
-    UndefinedVariable(&'a Token<'a>),
-}
-
-impl<'a> Error for RunTimeError<'a> {}
-
-impl<'a> Display for RunTimeError<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            RunTimeError::OperandShouldBeNumber { operator, operand } => write!(
-                f,
-                "Operand for the unary operator {:?} on line {} must be number but found {:?}",
-                operator.token_type, operator.line, operand
-            ),
-            RunTimeError::OperandsShouldBeNumber {
-                op: operator,
-                left,
-                right,
-            } => write!(
-                f,
-                "Operands for the binary operator {:?} on line {} must be numbers but found {:?} and {:?}",
-                operator, operator.line, left, right
-            ),
-            RunTimeError::UndefinedVariable(name) =>
-                write!(
-                    f,
-                    "Found undefined variable {} on line {}",
-                    name.lexeme, name.line
-            ),
-            RunTimeError::NotCallable { paren } =>
-                write!(
-                    f,
-                    "Can't call {} on line {} as it is not callable",
-                    paren.lexeme, paren.line
-            ),
-            RunTimeError::WrongNumArgs { paren, expected, actual } =>
-                write!(
-                    f,
-                    "Expected {} arguments but got {} for {} on line {}", 
-                    expected, actual, paren.lexeme, paren.line
-            )
-
-        }
-    }
-}
+use crate::lox_type::{FunctionType, LoxType};
+use crate::runtime_error::RunTimeError;
+use crate::{expr::Expr, stmt::Stmt, token_type::TokenType};
 
 pub fn interpret<'a>(
     env: Rc<RefCell<Environment>>,
@@ -145,7 +76,11 @@ pub fn evaluate_stmt<'a>(
             }
             Ok(())
         }
-        Stmt::Function { name, params, body } => {
+        Stmt::Function {
+            name,
+            params,
+            body: _,
+        } => {
             let arity = params.len();
             let params: Vec<_> = params.iter().map(|e| e.lexeme.to_string()).collect();
             let lox_function = LoxType::Function {
@@ -155,7 +90,7 @@ pub fn evaluate_stmt<'a>(
                     for (param, arg) in params.iter().zip(args.iter()) {
                         env.borrow_mut().define(param.into(), Rc::clone(arg));
                     }
-                    evaluate_stmt(Rc::clone(&env), todo!());
+                    // evaluate_stmt(Rc::clone(&env), todo!());
                     Rc::new(LoxType::Nil)
                 }),
                 arity,
