@@ -14,12 +14,12 @@ pub enum RunTimeError<'a> {
     },
     OperandShouldBeNumber {
         operator: &'a Token<'a>,
-        operand: Rc<LoxType>,
+        operand: Rc<LoxType<'a>>,
     },
     OperandsShouldBeNumber {
         op: &'a Token<'a>,
-        left: Rc<LoxType>,
-        right: Rc<LoxType>,
+        left: Rc<LoxType<'a>>,
+        right: Rc<LoxType<'a>>,
     },
     UndefinedVariable(&'a Token<'a>),
 }

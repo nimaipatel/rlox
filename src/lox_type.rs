@@ -1,5 +1,5 @@
 use std::fmt::{Debug, Display};
-use std::{rc::Rc, cell::RefCell};
+use std::{cell::RefCell, rc::Rc};
 
 use crate::environment::Environment;
 
@@ -9,7 +9,7 @@ pub enum FunctionType {
     NativeFunction(String),
 }
 
-pub enum LoxType {
+pub enum LoxType<'a> {
     Nil,
     Boolean(bool),
     Number(f64),
@@ -17,12 +17,12 @@ pub enum LoxType {
     Function {
         function_type: FunctionType,
         // call: fn(env: Rc<RefCell<Environment>>, arguments: Vec<Rc<LoxType>>) -> Rc<LoxType>,
-        call: Box<dyn Fn(Rc<RefCell<Environment>>, Vec<Rc<LoxType>>) -> Rc<LoxType>>,
+        call: Box<dyn 'a + Fn(Rc<RefCell<Environment<'a>>>, Vec<Rc<LoxType<'a>>>) -> Rc<LoxType<'a>>>,
         arity: usize,
     },
 }
 
-impl Debug for LoxType {
+impl<'a> Debug for LoxType<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Nil => write!(f, "Nil"),
@@ -43,7 +43,7 @@ impl Debug for LoxType {
     }
 }
 
-impl PartialEq for LoxType {
+impl<'a> PartialEq for LoxType<'a> {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Boolean(l0), Self::Boolean(r0)) => l0 == r0,
@@ -66,7 +66,7 @@ impl PartialEq for LoxType {
     }
 }
 
-impl Display for LoxType {
+impl<'a> Display for LoxType<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             LoxType::Nil => write!(f, "nil"),

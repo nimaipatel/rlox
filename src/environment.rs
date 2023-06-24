@@ -8,17 +8,17 @@ use crate::runtime_error::RunTimeError;
 use crate::token::Token;
 use crate::token_type::TokenType;
 
-pub struct Environment {
-    pub map: HashMap<String, Rc<LoxType>>,
-    pub enclosing: Option<Rc<RefCell<Environment>>>,
+pub struct Environment<'a> {
+    pub map: HashMap<String, Rc<LoxType<'a>>>,
+    pub enclosing: Option<Rc<RefCell<Environment<'a>>>>,
 }
 
-impl Environment {
+impl<'a> Environment<'a> {
     pub fn fresh() -> Rc<RefCell<Self>> {
         Rc::new(RefCell::new(Environment::new(None)))
     }
-    
-    pub fn new(enclosing: Option<Rc<RefCell<Environment>>>) -> Self {
+
+    pub fn new(enclosing: Option<Rc<RefCell<Environment<'a>>>>) -> Self {
         if let Some(enclosing) = enclosing {
             Self {
                 map: HashMap::new(),
@@ -45,11 +45,11 @@ impl Environment {
         }
     }
 
-    pub fn define(&mut self, name: String, value: Rc<LoxType>) {
+    pub fn define(&mut self, name: String, value: Rc<LoxType<'a>>) {
         self.map.insert(name, value);
     }
 
-    pub fn get<'a>(&self, name: &'a Token) -> Result<Rc<LoxType>, RunTimeError<'a>> {
+    pub fn get(&self, name: &'a Token) -> Result<Rc<LoxType<'a>>, RunTimeError<'a>> {
         match &name.token_type {
             TokenType::Identifier => match self.map.get(name.lexeme) {
                 Some(lox_val) => Ok(Rc::clone(lox_val)),
@@ -62,11 +62,11 @@ impl Environment {
         }
     }
 
-    pub fn assign<'a>(
+    pub fn assign(
         &mut self,
         name: &'a Token<'a>,
-        value: Rc<LoxType>,
-    ) -> Result<Rc<LoxType>, RunTimeError<'a>> {
+        value: Rc<LoxType<'a>>,
+    ) -> Result<Rc<LoxType<'a>>, RunTimeError<'a>> {
         if let Some(old_val) = self.map.get_mut(name.lexeme) {
             *old_val = value;
             Ok(LoxType::Nil.into())

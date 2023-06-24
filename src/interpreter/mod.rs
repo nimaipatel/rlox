@@ -8,7 +8,7 @@ use crate::runtime_error::RunTimeError;
 use crate::{expr::Expr, stmt::Stmt, token_type::TokenType};
 
 pub fn interpret<'a>(
-    env: Rc<RefCell<Environment>>,
+    env: Rc<RefCell<Environment<'a>>>,
     stmts: &'a Vec<Stmt<'a>>,
 ) -> Result<(), RunTimeError<'a>> {
     for stmt in stmts.iter() {
@@ -26,7 +26,7 @@ fn is_truthy<'a>(lox_type: &'a LoxType) -> bool {
 }
 
 pub fn evaluate_stmt<'a>(
-    env: Rc<RefCell<Environment>>,
+    env: Rc<RefCell<Environment<'a>>>,
     stmt: &'a Stmt,
 ) -> Result<(), RunTimeError<'a>> {
     match stmt {
@@ -79,7 +79,7 @@ pub fn evaluate_stmt<'a>(
         Stmt::Function {
             name,
             params,
-            body: _,
+            body,
         } => {
             let arity = params.len();
             let params: Vec<_> = params.iter().map(|e| e.lexeme.to_string()).collect();
@@ -90,7 +90,7 @@ pub fn evaluate_stmt<'a>(
                     for (param, arg) in params.iter().zip(args.iter()) {
                         env.borrow_mut().define(param.into(), Rc::clone(arg));
                     }
-                    // evaluate_stmt(Rc::clone(&env), todo!());
+                    evaluate_stmt(Rc::clone(&env), &body);
                     Rc::new(LoxType::Nil)
                 }),
                 arity,
@@ -103,7 +103,7 @@ pub fn evaluate_stmt<'a>(
 }
 
 fn execute_block<'a>(
-    env: Rc<RefCell<Environment>>,
+    env: Rc<RefCell<Environment<'a>>>,
     stmts: &'a [Stmt<'a>],
 ) -> Result<(), RunTimeError<'a>> {
     for stmt in stmts.iter() {
@@ -113,9 +113,9 @@ fn execute_block<'a>(
 }
 
 pub fn evaluate_expr<'a>(
-    env: Rc<RefCell<Environment>>,
+    env: Rc<RefCell<Environment<'a>>>,
     expr: &'a Expr,
-) -> Result<Rc<LoxType>, RunTimeError<'a>> {
+) -> Result<Rc<LoxType<'a>>, RunTimeError<'a>> {
     match expr {
         Expr::StringLiteral(s) => Ok(Rc::new(LoxType::String(s.to_string()))),
         Expr::NumericLiteral(n) => Ok(Rc::new(LoxType::Number(*n as f64))),

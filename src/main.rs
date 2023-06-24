@@ -1,13 +1,13 @@
 mod environment;
 mod expr;
 mod interpreter;
-mod runtime_error;
+mod lox_type;
 mod parser;
+mod runtime_error;
 mod scanner;
 mod stmt;
 mod token;
 mod token_type;
-mod lox_type;
 
 use std::cell::RefCell;
 use std::env;
@@ -40,8 +40,8 @@ fn run_prompt() -> io::Result<()> {
         if line.is_empty() {
             break;
         } else {
-            run(Rc::clone(&env), &line);
-            // unsafe { HAD_ERROR = false };
+            todo!()
+            // run(Rc::clone(&env), &line);
         }
     }
 
@@ -50,26 +50,26 @@ fn run_prompt() -> io::Result<()> {
 
 fn run_file(args: &str) -> io::Result<()> {
     let mut file = File::open(args)?;
-    let mut contents = String::new();
-    file.read_to_string(&mut contents)?;
+    let mut source = String::new();
+    file.read_to_string(&mut source)?;
     let env = Environment::fresh();
-    run(env, &contents);
+    run(env, &source);
     Ok(())
 }
 
-fn run(env: Rc<RefCell<Environment>>, source: &str) {
-    match scanner::scan(source) {
+fn run<'a>(env: Rc<RefCell<Environment<'a>>>, source: &'a str) {
+    match scanner::scan(&source) {
         Ok(tokens) => {
-            let (stmts, errs) = parser::parse(&tokens);
-            // dbg!(&stmts, &errs);
-            if errs.is_empty() {
-                match interpreter::interpret(env, &stmts) {
-                    Ok(_) => (),
-                    Err(e) => println!("Runtime error: {}", e),
-                }
-            } else {
-                errs.iter().for_each(|e| println!("Parsing error: {}", e));
-            }
+            todo!();
+            // let (stmts, errs) = parser::parse(&tokens);
+            // if errs.is_empty() {
+            //     match interpreter::interpret(env, &stmts) {
+            //         Ok(_) => (),
+            //         Err(e) => println!("Runtime error: {}", e),
+            //     }
+            // } else {
+            //     errs.iter().for_each(|e| println!("Parsing error: {}", e));
+            // }
         }
         Err(e) => println!("Lexing error: {}", e),
     }
