@@ -1,5 +1,3 @@
-use std::fmt::Display;
-
 #[derive(Debug, PartialEq)]
 pub enum TokenType<'a> {
     // Single-character tokens.

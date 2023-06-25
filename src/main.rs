@@ -9,15 +9,10 @@ mod stmt;
 mod token;
 mod token_type;
 
-use std::cell::RefCell;
 use std::env;
 use std::error::Error;
 use std::fs::File;
-use std::io::{self, BufRead, Read, Write};
-use std::rc::Rc;
-
-use environment::Environment;
-use scanner::scan;
+use std::io::{self, Read};
 
 fn main() -> Result<(), Box<dyn Error>> {
     let args = env::args().collect::<Vec<_>>();
