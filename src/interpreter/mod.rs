@@ -8,9 +8,10 @@ use crate::runtime_error::RunTimeError;
 use crate::{expr::Expr, stmt::Stmt, token_type::TokenType};
 
 pub fn interpret<'a>(
-    env: Rc<RefCell<Environment<'a>>>,
+    // env: Rc<RefCell<Environment<'a>>>,
     stmts: &'a Vec<Stmt<'a>>,
 ) -> Result<(), RunTimeError<'a>> {
+    let env = Environment::fresh();
     for stmt in stmts.iter() {
         evaluate_stmt(Rc::clone(&env), stmt)?;
     }
@@ -76,11 +77,7 @@ pub fn evaluate_stmt<'a>(
             }
             Ok(())
         }
-        Stmt::Function {
-            name,
-            params,
-            body,
-        } => {
+        Stmt::Function { name, params, body } => {
             let arity = params.len();
             let params: Vec<_> = params.iter().map(|e| e.lexeme.to_string()).collect();
             let lox_function = LoxType::Function {
@@ -90,8 +87,8 @@ pub fn evaluate_stmt<'a>(
                     for (param, arg) in params.iter().zip(args.iter()) {
                         env.borrow_mut().define(param.into(), Rc::clone(arg));
                     }
-                    evaluate_stmt(Rc::clone(&env), &body);
-                    Rc::new(LoxType::Nil)
+                    evaluate_stmt(Rc::clone(&env), &body)?;
+                    Ok(Rc::new(LoxType::Nil))
                 }),
                 arity,
             };
@@ -268,7 +265,7 @@ pub fn evaluate_expr<'a>(
                 } => {
                     let actual = arguments.len();
                     if *arity == actual {
-                        Ok((call)(env, arguments))
+                        (call)(env, arguments)
                     } else {
                         Err(RunTimeError::WrongNumArgs {
                             paren,

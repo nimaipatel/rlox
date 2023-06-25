@@ -31,8 +31,8 @@ impl<'a> Display for RunTimeError<'a> {
         match self {
             RunTimeError::OperandShouldBeNumber { operator, operand } => write!(
                 f,
-                "Operand for the unary operator {:?} on line {} must be number but found {:?}",
-                operator.token_type, operator.line, operand
+                "Operand for the unary operator {} on line {} must be number but found {}",
+                operator.lexeme, operator.line, operand
             ),
             RunTimeError::OperandsShouldBeNumber {
                 op: operator,
@@ -40,8 +40,8 @@ impl<'a> Display for RunTimeError<'a> {
                 right,
             } => write!(
                 f,
-                "Operands for the binary operator {:?} on line {} must be numbers but found {:?} and {:?}",
-                operator, operator.line, left, right
+                "Operands for the binary operator {} on line {} must be numbers but found {:?} and {:?}",
+                operator.lexeme, operator.line, left, right
             ),
             RunTimeError::UndefinedVariable(name) =>
                 write!(

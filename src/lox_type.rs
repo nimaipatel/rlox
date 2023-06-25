@@ -2,6 +2,7 @@ use std::fmt::{Debug, Display};
 use std::{cell::RefCell, rc::Rc};
 
 use crate::environment::Environment;
+use crate::runtime_error::RunTimeError;
 
 #[derive(Debug, PartialEq)]
 pub enum FunctionType {
@@ -17,7 +18,13 @@ pub enum LoxType<'a> {
     Function {
         function_type: FunctionType,
         // call: fn(env: Rc<RefCell<Environment>>, arguments: Vec<Rc<LoxType>>) -> Rc<LoxType>,
-        call: Box<dyn 'a + Fn(Rc<RefCell<Environment<'a>>>, Vec<Rc<LoxType<'a>>>) -> Rc<LoxType<'a>>>,
+        call: Box<
+            dyn 'a
+                + Fn(
+                    Rc<RefCell<Environment<'a>>>,
+                    Vec<Rc<LoxType<'a>>>,
+                ) -> Result<Rc<LoxType<'a>>, RunTimeError<'a>>,
+        >,
         arity: usize,
     },
 }
