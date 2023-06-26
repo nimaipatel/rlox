@@ -98,6 +98,7 @@ fn evaluate_stmt<'a>(
             let arity = params.len();
             let params: Vec<_> = params.iter().map(|e| e.lexeme.to_string()).collect();
             let lox_function = LoxType::Function {
+                closure: Some(Rc::clone(&env)),
                 function_type: FunctionType::UserDefined(name.lexeme.to_string().into()),
                 call: Box::new(move |env, args| {
                     let env = Rc::new(RefCell::new(Environment::new(Some(env))));
@@ -293,10 +294,14 @@ fn evaluate_expr<'a>(
                     function_type: _,
                     call,
                     arity,
+                    closure,
                 } => {
                     let actual = arguments.len();
                     if *arity == actual {
-                        (call)(env, arguments)
+                        match closure {
+                            Some(closure) => (call)(Rc::clone(closure), arguments),
+                            None => (call)(Rc::clone(&env), arguments),
+                        }
                     } else {
                         Err(RunTimeError::WrongNumArgs {
                             paren,

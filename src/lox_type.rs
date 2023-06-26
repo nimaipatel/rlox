@@ -16,6 +16,7 @@ pub enum LoxType<'a> {
     Number(f64),
     String(String),
     Function {
+        closure: Option<Rc<RefCell<Environment<'a>>>>,
         function_type: FunctionType,
         // call: fn(env: Rc<RefCell<Environment>>, arguments: Vec<Rc<LoxType>>) -> Rc<LoxType>,
         call: Box<
@@ -40,10 +41,10 @@ impl<'a> Debug for LoxType<'a> {
                 function_type,
                 call: _,
                 arity,
+                closure: _,
             } => f
                 .debug_struct("Function")
                 .field("function_type", function_type)
-                // .field("call", call)
                 .field("arity", arity)
                 .finish(),
         }
@@ -87,6 +88,7 @@ impl<'a> Display for LoxType<'a> {
                 function_type,
                 call: _,
                 arity: _,
+                closure: _,
             } => match function_type {
                 FunctionType::UserDefined(Some(name)) => {
                     write!(f, "<User-defined Function `{}`>", name)

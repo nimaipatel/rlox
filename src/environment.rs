@@ -39,6 +39,7 @@ impl<'a> Environment<'a> {
                 }),
                 arity: 0,
                 function_type: FunctionType::NativeFunction("clock".into()),
+                closure: None,
             };
             globals.define("clock".into(), clock.into());
             globals
