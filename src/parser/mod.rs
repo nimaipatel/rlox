@@ -14,8 +14,11 @@ use self::parse_error::ParseError;
 //                | forStmt
 //                | ifStmt
 //                | printStmt
+//                | printStmt
 //                | whileStmt
 //                | block ;
+
+// returnStmt     → "return" expression? ";" ;
 
 // forStmt        → "for" "(" ( varDecl | exprStmt | ";" )
 //                  expression? ";"
@@ -59,7 +62,6 @@ use self::parse_error::ParseError;
 //                | NUMBER | STRING
 //                | "(" expression ")"
 //                | IDENTIFIER ;
-
 
 pub fn parse<'a>(tokens: &'a Vec<Token<'a>>) -> (Vec<Stmt<'a>>, Vec<ParseError>) {
     let mut statements = Vec::new();
@@ -180,10 +182,31 @@ fn parse_statement<'a>(
         TokenType::For => parse_for_statement(tokens, pos + 1),
         TokenType::If => parse_if_statment(tokens, pos + 1),
         TokenType::Print => parse_print_statement(tokens, pos + 1),
+        TokenType::Return => parse_return_statement(tokens, pos),
         TokenType::While => parse_while_statement(tokens, pos + 1),
         TokenType::LeftBrace => parse_block(tokens, pos + 1),
         _ => parse_expression_statement(tokens, pos),
     }
+}
+
+fn parse_return_statement<'a>(
+    tokens: &'a Vec<Token<'a>>,
+    mut pos: usize,
+) -> Result<(Stmt<'a>, usize), ParseError<'a>> {
+    let keyword = &tokens[pos];
+    pos += 1;
+    let value = {
+        match &tokens[pos].token_type {
+            TokenType::Semicolon => None,
+            _ => {
+                let (value, new_pos) = parse_expression(tokens, pos)?;
+                pos = new_pos;
+                Some(value)
+            }
+        }
+    };
+    let (_, pos) = consume(tokens, pos, &TokenType::Semicolon)?;
+    Ok((Stmt::Return { keyword, value }, pos))
 }
 
 fn parse_for_statement<'a>(
@@ -643,4 +666,3 @@ fn parse_primary<'a>(
         _ => Err(ParseError::InvalidToken { token }),
     }
 }
-

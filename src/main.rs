@@ -56,6 +56,7 @@ fn run<'a>(source: &'a str) {
     match scanner::scan(&source) {
         Ok(tokens) => {
             let (stmts, errs) = parser::parse(&tokens);
+            // dbg!(&stmts, &errs);
             if errs.is_empty() {
                 match interpreter::interpret(&stmts) {
                     Ok(_) => (),

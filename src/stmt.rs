@@ -3,6 +3,10 @@ use crate::{expr::Expr, token::Token};
 #[derive(Debug)]
 pub enum Stmt<'a> {
     Print(Expr<'a>),
+    Return {
+        keyword: &'a Token<'a>,
+        value: Option<Expr<'a>>,
+    },
     Expression(Expr<'a>),
     Var(&'a Token<'a>, Option<Expr<'a>>),
     Block(Vec<Stmt<'a>>),

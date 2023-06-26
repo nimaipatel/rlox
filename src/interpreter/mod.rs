@@ -96,6 +96,9 @@ pub fn evaluate_stmt<'a>(
                 .define(name.lexeme.to_string(), Rc::new(lox_function));
             Ok(())
         }
+        Stmt::Return { keyword, value } => {
+            todo!();
+        },
     }
 }
 
