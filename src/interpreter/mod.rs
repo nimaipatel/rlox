@@ -87,7 +87,11 @@ pub fn evaluate_stmt<'a>(
                     for (param, arg) in params.iter().zip(args.iter()) {
                         env.borrow_mut().define(param.into(), Rc::clone(arg));
                     }
-                    evaluate_stmt(Rc::clone(&env), &body)?;
+                    match evaluate_stmt(Rc::clone(&env), &body) {
+                        Err(RunTimeError::Return(val)) => return Ok(val),
+                        Err(ret) => return Err(ret),
+                        Ok(_) => (),
+                    }
                     Ok(Rc::new(LoxType::Nil))
                 }),
                 arity,
@@ -97,8 +101,14 @@ pub fn evaluate_stmt<'a>(
             Ok(())
         }
         Stmt::Return { keyword, value } => {
-            todo!();
-        },
+            let value = {
+                match value {
+                    Some(value) => evaluate_expr(env, value)?,
+                    None => Rc::new(LoxType::Nil),
+                }
+            };
+            Err(RunTimeError::Return(value))
+        }
     }
 }
 

@@ -4,6 +4,7 @@ use crate::{token::Token, lox_type::LoxType};
 
 #[derive(Debug)]
 pub enum RunTimeError<'a> {
+    Return(Rc<LoxType<'a>>),
     WrongNumArgs {
         paren: &'a Token<'a>,
         expected: usize,
@@ -60,7 +61,8 @@ impl<'a> Display for RunTimeError<'a> {
                     f,
                     "Expected {} arguments but got {} for {} on line {}", 
                     expected, actual, paren.lexeme, paren.line
-            )
+            ),
+            RunTimeError::Return(_) => todo!(),
 
         }
     }
