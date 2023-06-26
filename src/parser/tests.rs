@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use crate::{scanner, expr::*, parser::*};
+    use crate::{expr::*, parser::*, scanner};
 
     #[test]
     fn test_parse_literal() {

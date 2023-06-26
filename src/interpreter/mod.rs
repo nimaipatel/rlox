@@ -13,7 +13,13 @@ pub fn interpret<'a>(
 ) -> Result<(), RunTimeError<'a>> {
     let env = Environment::fresh();
     for stmt in stmts.iter() {
-        evaluate_stmt(Rc::clone(&env), stmt)?;
+        match evaluate_stmt(Rc::clone(&env), stmt) {
+            Ok(_) => (),
+            Err(e) => match e {
+                RTErrorOrReturn::RunTimeError(e) => return Err(e),
+                RTErrorOrReturn::Return(_) => return Err(RunTimeError::ReturnNotInAFunc),
+            },
+        }
     }
     Ok(())
 }
@@ -26,10 +32,21 @@ fn is_truthy<'a>(lox_type: &'a LoxType) -> bool {
     }
 }
 
-pub fn evaluate_stmt<'a>(
+enum RTErrorOrReturn<'a> {
+    RunTimeError(RunTimeError<'a>),
+    Return(Rc<LoxType<'a>>),
+}
+
+impl<'a> From<RunTimeError<'a>> for RTErrorOrReturn<'a> {
+    fn from(value: RunTimeError<'a>) -> Self {
+        RTErrorOrReturn::RunTimeError(value)
+    }
+}
+
+fn evaluate_stmt<'a>(
     env: Rc<RefCell<Environment<'a>>>,
     stmt: &'a Stmt,
-) -> Result<(), RunTimeError<'a>> {
+) -> Result<(), RTErrorOrReturn<'a>> {
     match stmt {
         Stmt::Print(expr) => {
             let value = evaluate_expr(Rc::clone(&env), expr)?;
@@ -88,11 +105,12 @@ pub fn evaluate_stmt<'a>(
                         env.borrow_mut().define(param.into(), Rc::clone(arg));
                     }
                     match evaluate_stmt(Rc::clone(&env), &body) {
-                        Err(RunTimeError::Return(val)) => return Ok(val),
-                        Err(ret) => return Err(ret),
-                        Ok(_) => (),
+                        Ok(()) => Ok(Rc::new(LoxType::Nil)),
+                        Err(e) => match e {
+                            RTErrorOrReturn::RunTimeError(e) => Err(e),
+                            RTErrorOrReturn::Return(val) => Ok(val),
+                        },
                     }
-                    Ok(Rc::new(LoxType::Nil))
                 }),
                 arity,
             };
@@ -100,14 +118,14 @@ pub fn evaluate_stmt<'a>(
                 .define(name.lexeme.to_string(), Rc::new(lox_function));
             Ok(())
         }
-        Stmt::Return { keyword, value } => {
+        Stmt::Return { keyword: _, value } => {
             let value = {
                 match value {
                     Some(value) => evaluate_expr(env, value)?,
                     None => Rc::new(LoxType::Nil),
                 }
             };
-            Err(RunTimeError::Return(value))
+            Err(RTErrorOrReturn::Return(value))
         }
     }
 }
@@ -115,14 +133,14 @@ pub fn evaluate_stmt<'a>(
 fn execute_block<'a>(
     env: Rc<RefCell<Environment<'a>>>,
     stmts: &'a [Stmt<'a>],
-) -> Result<(), RunTimeError<'a>> {
+) -> Result<(), RTErrorOrReturn<'a>> {
     for stmt in stmts.iter() {
         evaluate_stmt(Rc::clone(&env), stmt)?;
     }
     Ok(())
 }
 
-pub fn evaluate_expr<'a>(
+fn evaluate_expr<'a>(
     env: Rc<RefCell<Environment<'a>>>,
     expr: &'a Expr,
 ) -> Result<Rc<LoxType<'a>>, RunTimeError<'a>> {

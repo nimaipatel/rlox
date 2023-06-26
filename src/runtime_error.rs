@@ -1,10 +1,11 @@
-use std::{rc::Rc, error::Error, fmt::Display};
+use std::{error::Error, fmt::Display, rc::Rc};
 
-use crate::{token::Token, lox_type::LoxType};
+use crate::{lox_type::LoxType, token::Token};
 
+// TODO: runtime errors should be reported using Stmt and Expr not Token
 #[derive(Debug)]
 pub enum RunTimeError<'a> {
-    Return(Rc<LoxType<'a>>),
+    ReturnNotInAFunc,
     WrongNumArgs {
         paren: &'a Token<'a>,
         expected: usize,
@@ -62,8 +63,7 @@ impl<'a> Display for RunTimeError<'a> {
                     "Expected {} arguments but got {} for {} on line {}", 
                     expected, actual, paren.lexeme, paren.line
             ),
-            RunTimeError::Return(_) => todo!(),
-
+            RunTimeError::ReturnNotInAFunc => write!(f, "Can't use return, not in a statment"),
         }
     }
 }

@@ -3,7 +3,6 @@ use std::{error::Error, fmt::Display};
 
 use crate::{token::Token, token_type::TokenType};
 
-// TODO: make ParseError accept the token to get line information
 #[derive(Debug, PartialEq)]
 pub enum ParseError<'a> {
     UnexpectedEndOfInput {
