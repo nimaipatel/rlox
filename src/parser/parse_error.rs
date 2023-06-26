@@ -13,7 +13,7 @@ pub enum ParseError<'a> {
     },
     ExpectedSomething {
         actual: &'a Token<'a>,
-        expected: &'a TokenType<'a>,
+        expected: &'a TokenType,
     },
     InvalidAssignment {
         equals: &'a Token<'a>,

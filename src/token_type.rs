@@ -1,5 +1,5 @@
 #[derive(Debug, PartialEq)]
-pub enum TokenType<'a> {
+pub enum TokenType {
     // Single-character tokens.
     LeftParen,
     RightParen,
@@ -25,8 +25,8 @@ pub enum TokenType<'a> {
 
     // Literals.
     Identifier,
-    String(&'a str),
-    Number(f64),
+    String,
+    Number,
 
     // Keywords.
     And,

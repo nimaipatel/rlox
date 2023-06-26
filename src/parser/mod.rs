@@ -377,7 +377,7 @@ fn parse_print_statement<'a>(
 fn consume<'a>(
     tokens: &'a Vec<Token<'a>>,
     pos: usize,
-    expected: &'a TokenType<'a>,
+    expected: &'a TokenType,
 ) -> Result<(&'a Token<'a>, usize), ParseError<'a>> {
     if tokens[pos].token_type == *expected {
         Ok((&tokens[pos], pos + 1))
@@ -392,7 +392,7 @@ fn consume<'a>(
 fn matchh<'a>(
     tokens: &'a Vec<Token<'a>>,
     pos: usize,
-    expected: Vec<TokenType<'a>>,
+    expected: Vec<TokenType>,
 ) -> Option<(&'a Token<'a>, usize)> {
     for expected in expected.iter() {
         if tokens[pos].token_type == *expected {
@@ -652,8 +652,8 @@ fn parse_primary<'a>(
         TokenType::True => Ok((Expr::BoolLiteral(true), pos + 1)),
         TokenType::Nil => Ok((Expr::NilLiteral, pos + 1)),
 
-        TokenType::Number(n) => Ok((Expr::NumericLiteral(*n), pos + 1)),
-        TokenType::String(s) => Ok((Expr::StringLiteral(s), pos + 1)),
+        TokenType::Number => Ok((Expr::NumericLiteral(token.lexeme.parse().unwrap()), pos + 1)),
+        TokenType::String => Ok((Expr::StringLiteral(token.lexeme), pos + 1)),
 
         TokenType::LeftParen => {
             let (expr, pos) = parse_expression(tokens, pos + 1)?;

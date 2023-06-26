@@ -103,7 +103,7 @@ pub fn scan<'a>(src: &'a str) -> Result<Vec<Token<'a>>, ScanError> {
                         '"' => {
                             let lexeme = &src[idx..=end_idx];
                             tokens.push(Token::new(
-                                TokenType::String(&lexeme[1..lexeme.len() - 1]),
+                                TokenType::String,
                                 lexeme,
                                 line,
                             ));
@@ -144,7 +144,7 @@ pub fn scan<'a>(src: &'a str) -> Result<Vec<Token<'a>>, ScanError> {
                 }
                 let lexeme = &src[idx..=end_idx];
                 tokens.push(Token::new(
-                    TokenType::Number(lexeme.parse().unwrap()),
+                    TokenType::Number,
                     lexeme,
                     line,
                 ));
